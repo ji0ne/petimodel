@@ -70,7 +70,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                 title: Text(data.device.name),
                                 subtitle: Text(data.device.id.id),
                                 trailing: Text(data.rssi.toString()),
-                                onTap: ()=> controller.connectToDevice
+                                onTap: ()=> controller.connectToDevice(data.device)
                               ),
                             );
                           },

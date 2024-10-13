@@ -16,7 +16,6 @@ class BleController extends GetxController {
 
   String completeData = "";
 
-
   @override
   void dispose()
   {
@@ -50,8 +49,11 @@ class BleController extends GetxController {
     try {
       await device.connect(timeout: Duration(seconds: 15));
       connectedDevice = device;
+      print("기기 연결됨 : $connectedDevice ");
+
 
       services = await device.discoverServices();
+
       for(var service in services)
         {
           for(var characteristic in service.characteristics)
@@ -59,6 +61,7 @@ class BleController extends GetxController {
               if(characteristic.uuid == Guid('00002a59-0000-1000-8000-00805f9b34fb'))
                 {
                   if (characteristic.properties.notify) {
+                    print("캐릭터 : $characteristic");
                     _subscribeToCharacteristic(characteristic);
 
                   }
@@ -67,7 +70,7 @@ class BleController extends GetxController {
         }
     } catch (e)
     {
-      print('Error');
+      print("에러임....");
     }
 
   }
@@ -83,14 +86,9 @@ class BleController extends GetxController {
     _characteristicSubscription =
         characteristic.value.listen((value){
           String data = utf8.decode(value);
-          print("Received data : $data");
-
-          //여기에서 데이터 누적
-          completeData +=data;
-          if(getByteCount(completeData) >= 50) {
-            print("통문자열 : $completeData");
-            completeData = "";
-          } //ㄴㄴㄴ
+          print("Received data : $value");
+          completeData += data;
+         print("통문자열 : $completeData");
         });
   }
 

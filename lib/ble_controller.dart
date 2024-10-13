@@ -14,7 +14,8 @@ class BleController extends GetxController {
   StreamSubscription<BluetoothDeviceState>? _deviceStateSubscription;
   StreamSubscription<List<int>>? _characteristicSubscription;
 
-  Timer? _dataTimer;
+  String completeData = "";
+
 
   @override
   void dispose()
@@ -33,13 +34,6 @@ class BleController extends GetxController {
 
       //10초간 스캔 진행
       ble.startScan(timeout: Duration(seconds: 10));
-
-      /*ble.scanResults.listen((results) {
-        for (var result in results)
-          {
-              print('Device found: ${result.device.name}');
-          }
-      });*/
 
       // 스캔 종료 대기
       await Future.delayed(Duration(seconds: 10));
@@ -66,6 +60,7 @@ class BleController extends GetxController {
                 {
                   if (characteristic.properties.notify) {
                     _subscribeToCharacteristic(characteristic);
+
                   }
                 }
             }
@@ -77,6 +72,11 @@ class BleController extends GetxController {
 
   }
 
+  int getByteCount(String str)
+  {
+    return utf8.encode(str).length;
+  }
+
   void _subscribeToCharacteristic(BluetoothCharacteristic characteristic)
   {
     characteristic.setNotifyValue(true);
@@ -85,26 +85,14 @@ class BleController extends GetxController {
           String data = utf8.decode(value);
           print("Received data : $data");
 
-          _parseGyroData(data);
+          //여기에서 데이터 누적
+          completeData +=data;
+          if(getByteCount(completeData) >= 50) {
+            print("통문자열 : $completeData");
+            completeData = "";
+          } //ㄴㄴㄴ
         });
   }
-
-  void _parseGyroData(String data)
-  {
-    if (data.contains("gyro=")) {
-      var gyroData = data.split('|')[0].replaceAll("gyro=", "");
-      print("Parsed Gyro Data: $gyroData");
-
-      // x, y, z 값 추출
-      var gyroValues = gyroData.split(',');
-      var gyroX = gyroValues[0].split(':')[1].trim();
-      var gyroY = gyroValues[1].split(':')[1].trim();
-      var gyroZ = gyroValues[2].split(':')[1].trim();
-
-      print("Gyro X: $gyroX, Gyro Y: $gyroY, Gyro Z: $gyroZ");
-    }
-  }
-
 
   Stream<List<ScanResult>> get scanResults => ble.scanResults;
 

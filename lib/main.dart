@@ -23,9 +23,6 @@ class MyApp extends StatelessWidget {
   }
 }
 
-
-
-
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
 
@@ -35,72 +32,68 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
-//이하 레이아웃
-
 class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      _counter++;
-    });
-  }
-
+  final BleController controller = Get.put(BleController());
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("flutter_blue_testing"),
+        title: Text(widget.title),
       ),
-      body: GetBuilder<BleController>(
-        init: BleController(),
-        builder: (BleController controller) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // ListView.builder를 Expanded로 감싸서 남는 공간만 차지하도록 함.
-                Expanded(
-                  child: StreamBuilder<List<ScanResult>>(
-                    stream: controller.scanResults,
-                    builder: (context, snapshot) {
-                      if (snapshot.hasData) {
-                        return ListView.builder(
-                          itemCount: snapshot.data!.length,
-                          itemBuilder: (context, index) {
-                            final data = snapshot.data![index];
-                            return Card(
-                              elevation: 2,
-                              child: ListTile(
-                                title: Text(data.device.name),
-                                subtitle: Text(data.device.id.id),
-                                trailing: Text(data.rssi.toString()),
-                                onTap: ()=> controller.connectToDevice(data.device)
-                              ),
-                            );
-                          },
-                        );
-                      } else {
-                        return Center(child: Text("No device found"));
-                      }
-                    },
-                  ),
-                ),
-                SizedBox(height: 10),
-                ElevatedButton(
-                  onPressed: () => controller.scanDevices(),
-                  child: Text("SCAN"),
-                ),
-              ],
+      body: Column(
+        children: [
+          // 상단 절반: 시리얼 모니터
+          Expanded(
+            flex: 1,
+            child: Container(
+              padding: EdgeInsets.all(8.0),
+              color: Colors.black,
+              child: Obx(() => ListView(
+                children: controller.receivedDataList.map((data) => Text(
+                  data,
+                  style: TextStyle(color: Colors.green),
+                )).toList(),
+              )),
             ),
-          );
-        },
+          ),
+          // 하단 절반: 블루투스 기기 리스트
+          Expanded(
+            flex: 1,
+            child: GetBuilder<BleController>(
+              builder: (controller) {
+                return StreamBuilder<List<ScanResult>>(
+                  stream: controller.scanResults,
+                  builder: (context, snapshot) {
+                    if (snapshot.hasData) {
+                      return ListView.builder(
+                        itemCount: snapshot.data!.length,
+                        itemBuilder: (context, index) {
+                          final data = snapshot.data![index];
+                          return Card(
+                            elevation: 2,
+                            child: ListTile(
+                              title: Text(data.device.name.isEmpty ? 'Unknown Device' : data.device.name),
+                              subtitle: Text(data.device.id.id),
+                              trailing: Text(data.rssi.toString()),
+                              onTap: () => controller.connectToDevice(data.device),
+                            ),
+                          );
+                        },
+                      );
+                    } else {
+                      return Center(child: Text("No device found"));
+                    }
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
+        onPressed: () => controller.scanDevices(),
+        child: const Icon(Icons.search),
       ),
     );
   }

@@ -7,34 +7,27 @@ import 'package:permission_handler/permission_handler.dart';
 class BleController extends GetxController {
   FlutterBlue ble = FlutterBlue.instance;
 
-  //데이터 로깅을 위한 변수들
   BluetoothDevice? connectedDevice;
-  List<BluetoothService> services =[];
-  List<int> receivedData =[];
+  List<BluetoothService> services = [];
   StreamSubscription<BluetoothDeviceState>? _deviceStateSubscription;
   StreamSubscription<List<int>>? _characteristicSubscription;
 
-  String completeData = "";
+  RxList<String> receivedDataList = <String>[].obs;
+
+  String CompleteData = "";
 
   @override
-  void dispose()
-  {
+  void dispose() {
     connectedDevice?.disconnect();
     _deviceStateSubscription?.cancel();
     _characteristicSubscription?.cancel();
     super.dispose();
   }
 
-
-
   Future<void> scanDevices() async {
     if (await Permission.bluetoothScan.isGranted &&
         await Permission.bluetoothConnect.isGranted) {
-
-      //10초간 스캔 진행
       ble.startScan(timeout: Duration(seconds: 10));
-
-      // 스캔 종료 대기
       await Future.delayed(Duration(seconds: 10));
       ble.stopScan();
     } else {
@@ -49,54 +42,53 @@ class BleController extends GetxController {
     try {
       await device.connect(timeout: Duration(seconds: 15));
       connectedDevice = device;
-      print("기기 연결됨 : $connectedDevice ");
-
+      print("기기 연결됨 : $connectedDevice");
 
       services = await device.discoverServices();
 
-      for(var service in services)
-        {
-          for(var characteristic in service.characteristics)
-            {
-              if(characteristic.uuid == Guid('00002a59-0000-1000-8000-00805f9b34fb'))
-                {
-                  if (characteristic.properties.notify) {
-                    print("캐릭터 : $characteristic");
-                    _subscribeToCharacteristic(characteristic);
-
-                  }
-                }
+      for (var service in services) {
+        for (var characteristic in service.characteristics) {
+          if (characteristic.uuid == Guid('00002a57-0000-1000-8000-00805f9b34fb')) {
+            if (characteristic.properties.notify) {
+              print("캐릭터 : $characteristic");
+              _subscribeToCharacteristic(characteristic);
             }
+          }
         }
-    } catch (e)
-    {
-      print("에러임....");
+      }
+    } catch (e) {
+      print("에러 발생: $e");
     }
-
   }
 
-  int getByteCount(String str)
-  {
-    return utf8.encode(str).length;
-  }
-
-  void _subscribeToCharacteristic(BluetoothCharacteristic characteristic)
-  {
+  void _subscribeToCharacteristic(BluetoothCharacteristic characteristic) {
     characteristic.setNotifyValue(true);
-    _characteristicSubscription =
-        characteristic.value.listen((value){
-          String data = utf8.decode(value);
-          print("Received data : $value");
-          completeData += data;
-         print("통문자열 : $completeData");
-        });
+    _characteristicSubscription = characteristic.value.listen((value) {
+      String data = utf8.decode(value);
+
+      //누적
+      if(data.contains('!'))
+        {
+          CompleteData += data;
+          print("Complete Data Received! : $CompleteData");
+          CompleteData = "";
+        }else {
+        CompleteData += data;
+      }
+
+
+      //print("Received data: $data");
+      receivedDataList.add(data);
+      if (receivedDataList.length > 100) {
+        receivedDataList.removeAt(0);
+      }
+    });
   }
 
   Stream<List<ScanResult>> get scanResults => ble.scanResults;
 
   @override
   void onClose() {
-    // 스트림 구독 해제
     _deviceStateSubscription?.cancel();
     super.onClose();
   }

@@ -14,7 +14,11 @@ class BleController extends GetxController {
 
   RxList<String> receivedDataList = <String>[].obs;
 
-  String CompleteData = "";
+  //이 클래스 안에서만 사용되는 private 변수
+  String completeData = "";
+
+  //다른 클래스에서 사용할 수신한 전체데이터 변수
+  String get s_completeData=> completeData;
 
   @override
   void dispose() {
@@ -68,12 +72,12 @@ class BleController extends GetxController {
 
       //누적
       if(data.contains('!'))
-        {
-          CompleteData += data;
-          print("Complete Data Received! : $CompleteData");
-          CompleteData = "";
-        }else {
-        CompleteData += data;
+      {
+        completeData += data;
+        print("Complete Data Received! : $completeData");
+        completeData = "";
+      }else {
+        completeData += data;
       }
 
 

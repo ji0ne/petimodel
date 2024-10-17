@@ -1,30 +1,25 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
-import 'package:flutter_blue/flutter_blue.dart';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class BleController extends GetxController {
-  FlutterBlue ble = FlutterBlue.instance;
-
   BluetoothDevice? connectedDevice;
   List<BluetoothService> services = [];
   StreamSubscription<BluetoothDeviceState>? _deviceStateSubscription;
   StreamSubscription<List<int>>? _characteristicSubscription;
 
   RxList<String> receivedDataList = <String>[].obs;
-
   BluetoothCharacteristic? writeCharacteristic;
 
-  //이 클래스 안에서만 사용되는 private 변수
+  // 이 클래스 안에서만 사용되는 private 변수
   String completeData = "";
 
-  //다른 클래스에서 사용할 수신한 전체데이터 변수
-  String get s_completeData=> completeData;
+  // 다른 클래스에서 사용할 수신한 전체 데이터 변수
+  String get s_completeData => completeData;
 
   var isScanning = false.obs;
-  
 
   @override
   void dispose() {
@@ -37,9 +32,11 @@ class BleController extends GetxController {
   Future<void> scanDevices() async {
     if (await Permission.bluetoothScan.isGranted &&
         await Permission.bluetoothConnect.isGranted) {
-      ble.startScan(timeout: Duration(seconds: 10));
+      isScanning.value = true;
+      FlutterBluePlus.startScan(timeout: Duration(seconds: 10));
       await Future.delayed(Duration(seconds: 10));
-      ble.stopScan();
+      FlutterBluePlus.stopScan();
+      isScanning.value = false;
     } else {
       await [
         Permission.bluetoothScan,
@@ -60,19 +57,18 @@ class BleController extends GetxController {
         for (var characteristic in service.characteristics) {
           if (characteristic.uuid == Guid('00002a57-0000-1000-8000-00805f9b34fb')) {
             if (characteristic.properties.notify) {
-              print("캐릭터 : $characteristic");
+              print("Notify Characteristic Found: $characteristic");
               _subscribeToCharacteristic(characteristic);
             }
-            if(characteristic.properties.write)
-              {
-                  writeCharacteristic = characteristic;
-                  print("Write특성 찾음 : $writeCharacteristic");
-              }
+            if (characteristic.properties.write) {
+              writeCharacteristic = characteristic;
+              print("Write Characteristic Found: $writeCharacteristic");
+            }
           }
         }
       }
     } catch (e) {
-      print("에러 발생: $e");
+      print("Connection error: $e");
     }
   }
 
@@ -81,18 +77,15 @@ class BleController extends GetxController {
     _characteristicSubscription = characteristic.value.listen((value) {
       String data = utf8.decode(value);
 
-      //누적
-      if(data.contains('!'))
-      {
+      // 데이터 누적
+      if (data.contains('!')) {
         completeData += data;
-        print("Complete Data Received! : $completeData");
+        print("Complete Data Received: $completeData");
         completeData = "";
-      }else {
+      } else {
         completeData += data;
       }
 
-
-      //print("Received data: $data");
       receivedDataList.add(data);
       if (receivedDataList.length > 100) {
         receivedDataList.removeAt(0);
@@ -127,7 +120,7 @@ class BleController extends GetxController {
     }
   }
 
-  Stream<List<ScanResult>> get scanResults => ble.scanResults;
+  Stream<List<ScanResult>> get scanResults => FlutterBluePlus.scanResults;
 
   @override
   void onClose() {

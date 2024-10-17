@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter_blue/flutter_blue.dart';
 import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -14,11 +15,16 @@ class BleController extends GetxController {
 
   RxList<String> receivedDataList = <String>[].obs;
 
+  BluetoothCharacteristic? writeCharacteristic;
+
   //이 클래스 안에서만 사용되는 private 변수
   String completeData = "";
 
   //다른 클래스에서 사용할 수신한 전체데이터 변수
   String get s_completeData=> completeData;
+
+  var isScanning = false.obs;
+  
 
   @override
   void dispose() {
@@ -57,6 +63,11 @@ class BleController extends GetxController {
               print("캐릭터 : $characteristic");
               _subscribeToCharacteristic(characteristic);
             }
+            if(characteristic.properties.write)
+              {
+                  writeCharacteristic = characteristic;
+                  print("Write특성 찾음 : $writeCharacteristic");
+              }
           }
         }
       }
@@ -87,6 +98,33 @@ class BleController extends GetxController {
         receivedDataList.removeAt(0);
       }
     });
+  }
+
+  Future<void> sendData(int number) async {
+    if (number != 1) {
+      print("Invalid number: Only 1 is supported");
+      return;
+    }
+
+    if (connectedDevice == null) {
+      print("No device connected");
+      return;
+    }
+
+    if (writeCharacteristic == null) {
+      print("Write characteristic not found");
+      return;
+    }
+
+    try {
+      // 0x01을 1바이트로 전송
+      List<int> byteArray = [0x01];  // 16진수 0x01 사용
+
+      await writeCharacteristic!.write(byteArray, withoutResponse: true);
+      print('Data sent: 0x01');
+    } catch (e) {
+      print("Error sending data: $e");
+    }
   }
 
   Stream<List<ScanResult>> get scanResults => ble.scanResults;

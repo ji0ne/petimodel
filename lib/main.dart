@@ -2,6 +2,7 @@ import 'package:firstnote/ble_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:get/get.dart';
+import 'dart:async';
 
 void main() {
   runApp(const MyApp());
@@ -31,6 +32,40 @@ class PetProfileScreen extends StatefulWidget {
 
 class _PetProfileScreenState extends State<PetProfileScreen> {
   final BleController controller = Get.put(BleController());
+  String _movement = '정지';
+  double _threshold1 = 1.0; // 걷기 임계값
+  double _threshold2 = 5.0; // 뛰기 임계값
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _startTimer();
+  }
+
+  void _startTimer() {
+    _timer = Timer.periodic(Duration(seconds: 10), (timer) {
+      if (controller.magnitudes.isNotEmpty) {
+        double averageMagnitude = controller.magnitudes.reduce((a, b) => a + b) / controller.magnitudes.length;
+        setState(() {
+          if (averageMagnitude < _threshold1) {
+            _movement = '정지';
+          } else if (averageMagnitude < _threshold2) {
+            _movement = '걷기';
+          } else {
+            _movement = '뛰기';
+          }
+        });
+        controller.magnitudes.clear();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -99,8 +134,8 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
                       fontSize: 16,
                     ),
                   ),
-                  const Text(
-                    '걷기',
+                  Text(
+                    _movement,
                     style: TextStyle(
                       fontSize: 16,
                     ),
@@ -124,17 +159,32 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
                     children: [
                       const Icon(Icons.favorite, color: Colors.black),
                       const SizedBox(width: 8),
-                      Obx(() => Text(
-                        '${controller.receivedDataList.isNotEmpty ? controller.receivedDataList.last : "110"} bpm',
-                        style: const TextStyle(fontSize: 16),
-                      )),
+                      Obx(() {
+                        if (controller.receivedDataList.isNotEmpty) {
+                          var lastData = controller.receivedDataList.last.split('|');
+                          return Text(
+                            '${lastData.length > 1 ? lastData[1] : "110"} bpm',
+                            style: const TextStyle(fontSize: 16),
+                          );
+                        }
+                        return Text('110 bpm', style: const TextStyle(fontSize: 16));
+                      }),
                     ],
                   ),
-                  const Row(
+                  Row(
                     children: [
-                      Icon(Icons.thermostat, color: Colors.deepOrange),
-                      SizedBox(width: 8),
-                      Text('37°C', style: TextStyle(fontSize: 16)),
+                      const Icon(Icons.thermostat, color: Colors.deepOrange),
+                      const SizedBox(width: 8),
+                      Obx(() {
+                        if (controller.receivedDataList.isNotEmpty) {
+                          var lastData = controller.receivedDataList.last.split('|');
+                          return Text(
+                            '${lastData.isNotEmpty ? lastData[0] : "37"}°C',
+                            style: const TextStyle(fontSize: 16),
+                          );
+                        }
+                        return Text('37°C', style: const TextStyle(fontSize: 16));
+                      }),
                     ],
                   ),
                 ],

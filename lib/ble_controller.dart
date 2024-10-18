@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -20,6 +21,9 @@ class BleController extends GetxController {
   String get s_completeData => completeData;
 
   var isScanning = false.obs;
+
+  // 운동량 측정을 위한 리스트 추가
+  RxList<double> magnitudes = <double>[].obs;
 
   @override
   void dispose() {
@@ -81,6 +85,7 @@ class BleController extends GetxController {
       if (data.contains('!')) {
         completeData += data;
         print("Complete Data Received: $completeData");
+        _processData(completeData);
         completeData = "";
       } else {
         completeData += data;
@@ -91,6 +96,26 @@ class BleController extends GetxController {
         receivedDataList.removeAt(0);
       }
     });
+  }
+
+  void _processData(String data) {
+    List<String> parts = data.split('|');
+    if (parts.length >= 8) {
+      double ax = double.tryParse(parts[2]) ?? 0;
+      double ay = double.tryParse(parts[3]) ?? 0;
+      double az = double.tryParse(parts[4]) ?? 0;
+      double gx = double.tryParse(parts[5]) ?? 0;
+      double gy = double.tryParse(parts[6]) ?? 0;
+      double gz = double.tryParse(parts[7]) ?? 0;
+
+      double magnitude = sqrt(ax * ax + ay * ay + az * az + gx * gx + gy * gy + gz * gz);
+      magnitudes.add(magnitude);
+
+      // magnitudes 리스트의 크기를 제한하여 메모리 사용을 관리합니다
+      if (magnitudes.length > 100) {
+        magnitudes.removeAt(0);
+      }
+    }
   }
 
   Future<void> sendData(int number) async {

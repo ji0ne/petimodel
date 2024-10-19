@@ -161,13 +161,15 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
                       const SizedBox(width: 8),
                       Obx(() {
                         if (controller.receivedDataList.isNotEmpty) {
-                          var lastData = controller.receivedDataList.last.split('|');
+                          //var lastData = controller.receivedDataList.last.split('|');
+                          int bpm = int.tryParse(controller.s_bpm) ?? 110;
+                          Color bpmColor = bpm >= 100 ? Colors.red : Colors.green;
                           return Text(
-                            '${lastData.length > 1 ? lastData[1] : "110"} bpm',
-                            style: const TextStyle(fontSize: 16),
+                            '$bpm bpm',
+                            style: TextStyle(fontSize: 16, color: bpmColor),
                           );
                         }
-                        return Text('110 bpm', style: const TextStyle(fontSize: 16));
+                        return Text('92 bpm', style: const TextStyle(fontSize: 16, color: Colors.green));
                       }),
                     ],
                   ),
@@ -177,13 +179,15 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
                       const SizedBox(width: 8),
                       Obx(() {
                         if (controller.receivedDataList.isNotEmpty) {
-                          var lastData = controller.receivedDataList.last.split('|');
+                         // var lastData = controller.receivedDataList.last.split('|');
+                          double temperature = double.tryParse(controller.s_temperature) ?? 37.0;
+                          Color temperatureColor = temperature >= 80.0 ? Colors.red : Colors.green;
                           return Text(
-                            '${lastData.isNotEmpty ? lastData[0] : "37"}°C',
-                            style: const TextStyle(fontSize: 16),
+                            '$temperature°C',
+                            style: TextStyle(fontSize: 16, color: temperatureColor),
                           );
                         }
-                        return Text('37°C', style: const TextStyle(fontSize: 16));
+                        return Text('37°C', style: const TextStyle(fontSize: 16, color: Colors.green));
                       }),
                     ],
                   ),
@@ -245,17 +249,6 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
                     child: const Text('주변 기기 찾기'),
                   ),
                   const SizedBox(height: 8),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.deepOrange,
-                      minimumSize: const Size(double.infinity, 50),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    onPressed: () => controller.sendData(1),
-                    child: const Text('PET-EYE'),
-                  ),
                 ],
               ),
             ),

@@ -16,9 +16,13 @@ class BleController extends GetxController {
 
   // 이 클래스 안에서만 사용되는 private 변수
   String completeData = "";
+  String bpmData ="";
+  String temperatureData ="";
 
   // 다른 클래스에서 사용할 수신한 전체 데이터 변수
   String get s_completeData => completeData;
+  String get s_temperature => temperatureData;
+  String get s_bpm => bpmData;
 
   var isScanning = false.obs;
 
@@ -98,15 +102,28 @@ class BleController extends GetxController {
     });
   }
 
-  void _processData(String data) {
-    List<String> parts = data.split('|');
-    if (parts.length >= 8) {
-      double ax = double.tryParse(parts[2]) ?? 0;
-      double ay = double.tryParse(parts[3]) ?? 0;
-      double az = double.tryParse(parts[4]) ?? 0;
-      double gx = double.tryParse(parts[5]) ?? 0;
-      double gy = double.tryParse(parts[6]) ?? 0;
-      double gz = double.tryParse(parts[7]) ?? 0;
+  void _processData(String completeData) {
+    List<String> dataParts = completeData.split('|');
+
+    if(dataParts.length >=2)
+      {
+        String bpm = dataParts[0].trim();
+        String temperature = dataParts[1].trim();
+
+        bpmData = bpm;
+        temperatureData = temperature;
+
+        print("s_bpm : $bpmData" );
+        print("s_temp : $temperatureData");
+      }
+
+    if (dataParts.length >= 8) {
+      double ax = double.tryParse(dataParts[2]) ?? 0;
+      double ay = double.tryParse(dataParts[3]) ?? 0;
+      double az = double.tryParse(dataParts[4]) ?? 0;
+      double gx = double.tryParse(dataParts[5]) ?? 0;
+      double gy = double.tryParse(dataParts[6]) ?? 0;
+      double gz = double.tryParse(dataParts[7]) ?? 0;
 
       double magnitude = sqrt(ax * ax + ay * ay + az * az + gx * gx + gy * gy + gz * gz);
       magnitudes.add(magnitude);

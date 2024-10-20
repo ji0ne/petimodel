@@ -24,6 +24,11 @@ class BleController extends GetxController {
   String get s_temperature => temperatureData;
   String get s_bpm => bpmData;
 
+
+  //var s_bpm = '74'.obs; // 초기 값으로 문자열 사용
+  //var s_temperature = '36.5'.obs; // 초기 값으로 문자열 사용
+
+
   var isScanning = false.obs;
 
   // 운동량 측정을 위한 리스트 추가
@@ -89,16 +94,24 @@ class BleController extends GetxController {
       if (data.contains('!')) {
         completeData += data;
         print("Complete Data Received: $completeData");
-        _processData(completeData);
+        //_processData(completeData);
+        List<String> dataParts = completeData.split('|');
+        String bpm = dataParts[0].trim();
+        String temperature = dataParts[1].trim();
+        bpmData = bpm;
+        temperatureData = temperature;
+        print("s_bpm : $bpmData" );
+        print("s_temp : $temperatureData");
+
         completeData = "";
       } else {
         completeData += data;
       }
-
-      receivedDataList.add(data);
-      if (receivedDataList.length > 100) {
-        receivedDataList.removeAt(0);
-      }
+      //
+      // receivedDataList.add(data);
+      // if (receivedDataList.length > 100) {
+      //   receivedDataList.removeAt(0);
+      // }
     });
   }
 

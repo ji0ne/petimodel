@@ -38,14 +38,6 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
   double _threshold1 = 1.0;
   double _threshold2 = 5.0;
   Timer? _timer;
-  Timer? _dataUpdateTimer;
-
-  bool _alertShown = false;
-  bool _startedUpdating = false;
-  final Random _random = Random();
-
-  final ValueNotifier<int> _currentBpm = ValueNotifier(74);
-  final ValueNotifier<double> _currentTemperature = ValueNotifier(36.4);
 
   @override
   void initState() {
@@ -54,7 +46,7 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
   }
 
   void _startTimer() {
-    _timer = Timer.periodic(Duration(seconds: 10), (timer) {
+    _timer = Timer.periodic(Duration(seconds: 2), (timer) {
       if (controller.magnitudes.isNotEmpty) {
         double averageMagnitude = controller.magnitudes.reduce((a, b) => a + b) / controller.magnitudes.length;
         setState(() {
@@ -71,67 +63,9 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
     });
   }
 
-  void _startDataUpdates() {
-    if (!_startedUpdating) {
-      _startedUpdating = true;
-
-      Future.delayed(Duration(seconds: 10), () {
-        _dataUpdateTimer = Timer.periodic(Duration(seconds: 1), (timer) {
-          int bpmIncrease = _random.nextInt(3) + 5;
-          _currentBpm.value += bpmIncrease;
-          if(_currentBpm.value >= 112) {
-            _currentBpm.value = 112;
-
-            if(!_alertShown) {
-              _showAlertDialog();
-              _alertShown = true;
-            }
-          }
-
-          _currentTemperature.value = 36.5 + (_random.nextDouble() * 0.3);
-        });
-      });
-    }
-  }
-
-  void _showAlertDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Icon(
-            Icons.warning_amber_rounded,
-            color: Colors.red,
-            size: 50,
-          ),
-          content: Text(
-            "Alert : 아이의 심장이\n너무 빨리 뛰어요 !",
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Colors.red,
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: Text('확인'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   @override
   void dispose() {
     _timer?.cancel();
-    _dataUpdateTimer?.cancel();
-    _currentBpm.dispose();
-    _currentTemperature.dispose();
     super.dispose();
   }
 
@@ -200,13 +134,15 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
                       fontSize: 16,
                     ),
                   ),
-                  ValueListenableBuilder<int>(
-                    valueListenable: _currentBpm,
-                    builder: (context, bpm, child) {
+                  ValueListenableBuilder<String>(
+                    valueListenable: ValueNotifier(_movement),
+                    builder: (context, movement, child) {
                       return Image.asset(
-                        bpm >= 100
+                        movement == '뛰기'
                             ? 'assets/running-dog-silhouette_47203.png'
-                            : 'assets/dog-facing-right.png',
+                            : movement == '걷기'
+                            ? 'assets/dog-facing-right.png'
+                            : 'assets/sitting-dog-icon.png',  // 정지일 때도 기본 이미지
                         width: 24,
                         height: 24,
                       );
@@ -230,32 +166,28 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
                     children: [
                       const Icon(Icons.favorite, color: Colors.black),
                       const SizedBox(width: 8),
-                      ValueListenableBuilder<int>(
-                        valueListenable: _currentBpm,
-                        builder: (context, bpm, child) {
-                          Color bpmColor = bpm >= 100 ? Colors.red : Colors.green;
-                          return Text(
-                            '$bpm bpm',
-                            style: TextStyle(fontSize: 16, color: bpmColor),
-                          );
-                        },
-                      ),
+                      Obx(() {
+                        double bpm = double.tryParse(controller.s_bpm) ?? 0;
+                        Color bpmColor = bpm >= 100 ? Colors.red : Colors.green;
+                        return Text(
+                          '${controller.s_bpm} bpm',
+                          style: TextStyle(fontSize: 16, color: bpmColor),
+                        );
+                      }),
                     ],
                   ),
                   Row(
                     children: [
                       const Icon(Icons.thermostat, color: Colors.deepOrange),
                       const SizedBox(width: 8),
-                      ValueListenableBuilder<double>(
-                        valueListenable: _currentTemperature,
-                        builder: (context, temperature, child) {
-                          Color temperatureColor = temperature >= 37.5 ? Colors.red : Colors.green;
-                          return Text(
-                            '${temperature.toStringAsFixed(1)}°C',
-                            style: TextStyle(fontSize: 16, color: temperatureColor),
-                          );
-                        },
-                      ),
+                      Obx(() {
+                        double temp = double.tryParse(controller.s_temperature) ?? 0;
+                        Color temperatureColor = temp >= 37.5 ? Colors.red : Colors.green;
+                        return Text(
+                          '${controller.s_temperature}°C',
+                          style: TextStyle(fontSize: 16, color: temperatureColor),
+                        );
+                      }),
                     ],
                   ),
                 ],
@@ -269,11 +201,20 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
                     stream: controller.scanResults,
                     builder: (context, snapshot) {
                       if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+                        List<ScanResult> filteredResults = snapshot.data!.where((result) {
+                          String deviceName = result.device.name.toUpperCase();
+                          return deviceName.contains('PET');
+                        }).toList();
+
+                        if (filteredResults.isEmpty) {
+                          return const Center(child: Text("PET 기기를 찾을 수 없습니다"));
+                        }
+
                         return ListView.builder(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
-                          itemCount: snapshot.data!.length,
+                          itemCount: filteredResults.length,
                           itemBuilder: (context, index) {
-                            final data = snapshot.data![index];
+                            final data = filteredResults[index];
                             return Card(
                               margin: const EdgeInsets.only(bottom: 8),
                               shape: RoundedRectangleBorder(
@@ -312,7 +253,6 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
                     ),
                     onPressed: () {
                       controller.scanDevices();
-                      _startDataUpdates();
                     },
                     child: const Text('주변 기기 찾기'),
                   ),

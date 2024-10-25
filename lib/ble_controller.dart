@@ -14,20 +14,15 @@ class BleController extends GetxController {
   RxList<String> receivedDataList = <String>[].obs;
   BluetoothCharacteristic? writeCharacteristic;
 
-  // 이 클래스 안에서만 사용되는 private 변수
-  String completeData = "";
-  String bpmData ="";
-  String temperatureData ="";
+  // 반응형 변수로 변경
+  RxString completeData = "".obs;
+  RxString bpmData = "74".obs;  // 초기값 설정
+  RxString temperatureData = "36.5".obs;
 
   // 다른 클래스에서 사용할 수신한 전체 데이터 변수
-  String get s_completeData => completeData;
-  String get s_temperature => temperatureData;
-  String get s_bpm => bpmData;
-
-
-  //var s_bpm = '74'.obs; // 초기 값으로 문자열 사용
-  //var s_temperature = '36.5'.obs; // 초기 값으로 문자열 사용
-
+  String get s_completeData => completeData.value;
+  String get s_temperature => temperatureData.value;
+  String get s_bpm => bpmData.value;
 
   var isScanning = false.obs;
 
@@ -89,61 +84,61 @@ class BleController extends GetxController {
     characteristic.setNotifyValue(true);
     _characteristicSubscription = characteristic.value.listen((value) {
       String data = utf8.decode(value);
+      print("Raw received data: $data");
 
-      // 데이터 누적
-      if (data.contains('!')) {
-        completeData += data;
-        print("Complete Data Received: $completeData");
-        //_processData(completeData);
-        List<String> dataParts = completeData.split('|');
-        String bpm = dataParts[0].trim();
-        String temperature = dataParts[1].trim();
-        bpmData = bpm;
-        temperatureData = temperature;
-        print("s_bpm : $bpmData" );
-        print("s_temp : $temperatureData");
+      if (data.contains('V')) {  // 백슬래시를 포함한 데이터는 체온/심박수
+        List<String> parts = data.split('|');
+        print("Vital signs parts: $parts");
+        try {
+         String temperStr = temperatureData.value = parts[0].trim();
+         double temperatureValue = double.parse(temperStr);
+         double adjustTemperature = temperatureValue + 9.60;
+         temperatureData.value = adjustTemperature.toStringAsFixed(1);
+         print("Temperature updated: ${temperatureData.value}");
 
-        completeData = "";
+         // 심박수 처리 ('V' 제거하고 처리)
+         String bpmStr = parts[1].replaceAll('V', '').trim();
+         double bpmValue = double.parse(bpmStr);
+         double adjustedBpm = bpmValue + 30.0;
+         bpmData.value = adjustedBpm.toStringAsFixed(1);
+         print("BPM updated: ${bpmData.value}");
+
+        } catch (e) {
+          print("Error processing temp/BPM data: $e");
+        }
+      } else if (data.contains('!')) {  // 자이로/가속도 데이터
+        completeData.value += data;
+        _processMotionData(completeData.value);
+        completeData.value = "";
       } else {
-        completeData += data;
+        completeData.value += data;
+        print("Accumulating data: ${completeData.value}");
       }
-      //
-      // receivedDataList.add(data);
-      // if (receivedDataList.length > 100) {
-      //   receivedDataList.removeAt(0);
-      // }
     });
   }
 
-  void _processData(String completeData) {
-    List<String> dataParts = completeData.split('|');
-
-    if(dataParts.length >=2)
-      {
-        String bpm = dataParts[0].trim();
-        String temperature = dataParts[1].trim();
-
-        bpmData = bpm;
-        temperatureData = temperature;
-
-        print("s_bpm : $bpmData" );
-        print("s_temp : $temperatureData");
-      }
+  void _processMotionData(String motionData) {
+    List<String> dataParts = motionData.split('|');
+    print("Processing motion data parts: $dataParts");
 
     if (dataParts.length >= 8) {
-      double ax = double.tryParse(dataParts[2]) ?? 0;
-      double ay = double.tryParse(dataParts[3]) ?? 0;
-      double az = double.tryParse(dataParts[4]) ?? 0;
-      double gx = double.tryParse(dataParts[5]) ?? 0;
-      double gy = double.tryParse(dataParts[6]) ?? 0;
-      double gz = double.tryParse(dataParts[7]) ?? 0;
+      try {
+        double ax = double.tryParse(dataParts[2].trim()) ?? 0;
+        double ay = double.tryParse(dataParts[3].trim()) ?? 0;
+        double az = double.tryParse(dataParts[4].trim()) ?? 0;
+        double gx = double.tryParse(dataParts[5].trim()) ?? 0;
+        double gy = double.tryParse(dataParts[6].trim()) ?? 0;
+        double gz = double.tryParse(dataParts[7].trim()) ?? 0;
 
-      double magnitude = sqrt(ax * ax + ay * ay + az * az + gx * gx + gy * gy + gz * gz);
-      magnitudes.add(magnitude);
+        double magnitude = sqrt(ax * ax + ay * ay + az * az + gx * gx + gy * gy + gz * gz);
+        magnitudes.add(magnitude);
+        print("Calculated magnitude: $magnitude");
 
-      // magnitudes 리스트의 크기를 제한하여 메모리 사용을 관리합니다
-      if (magnitudes.length > 100) {
-        magnitudes.removeAt(0);
+        if (magnitudes.length > 100) {
+          magnitudes.removeAt(0);
+        }
+      } catch (e) {
+        print("Error processing motion data: $e");
       }
     }
   }
@@ -165,9 +160,7 @@ class BleController extends GetxController {
     }
 
     try {
-      // 0x01을 1바이트로 전송
-      List<int> byteArray = [0x01];  // 16진수 0x01 사용
-
+      List<int> byteArray = [0x01];
       await writeCharacteristic!.write(byteArray, withoutResponse: true);
       print('Data sent: 0x01');
     } catch (e) {

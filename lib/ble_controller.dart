@@ -26,6 +26,9 @@ class BleController extends GetxController {
 
   var isScanning = false.obs;
 
+  Rx<String?> connectingDeviceId = Rx<String?>(null);
+  RxBool isConnected = false.obs;
+
   // 운동량 측정을 위한 리스트 추가
   RxList<double> magnitudes = <double>[].obs;
 
@@ -55,8 +58,10 @@ class BleController extends GetxController {
 
   Future<void> connectToDevice(BluetoothDevice device) async {
     try {
+      connectingDeviceId.value = device.id.id;
       await device.connect(timeout: Duration(seconds: 15));
       connectedDevice = device;
+      isConnected.value = true;
       print("기기 연결됨 : $connectedDevice");
 
       services = await device.discoverServices();
@@ -77,6 +82,8 @@ class BleController extends GetxController {
       }
     } catch (e) {
       print("Connection error: $e");
+    }finally{
+      connectingDeviceId.value = null;
     }
   }
 

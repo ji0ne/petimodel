@@ -6,6 +6,9 @@ import 'package:get/get.dart';
 import 'dart:async';
 import 'dart:math';
 
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
 void main() {
   runApp(const MyApp());
 }
@@ -34,33 +37,160 @@ class PetProfileScreen extends StatefulWidget {
 
 class _PetProfileScreenState extends State<PetProfileScreen> {
   final BleController controller = Get.put(BleController());
-  String _movement = '정지';
+  RxString _movement = '정지'.obs;
   double _threshold1 = 1.0;
   double _threshold2 = 5.0;
   Timer? _timer;
+
+  bool _isAlertShowing = false; //팝업창
 
   @override
   void initState() {
     super.initState();
     _startTimer();
+    _monitorTemperature();
   }
 
   void _startTimer() {
-    _timer = Timer.periodic(Duration(seconds: 2), (timer) {
+    _timer = Timer.periodic(Duration(seconds: 1), (timer) {
       if (controller.magnitudes.isNotEmpty) {
         double averageMagnitude = controller.magnitudes.reduce((a, b) => a + b) / controller.magnitudes.length;
         setState(() {
           if (averageMagnitude < _threshold1) {
-            _movement = '정지';
+            _movement.value = '정지';
           } else if (averageMagnitude < _threshold2) {
-            _movement = '걷기';
+            _movement.value = '걷기';
           } else {
-            _movement = '뛰기';
+            _movement.value = '뛰기';
           }
         });
         controller.magnitudes.clear();
       }
     });
+  }
+
+  void _monitorTemperature() {
+    ever(controller.temperatureData, (String temp) {
+      double temperature = double.tryParse(temp) ?? 0;
+      if (temperature >= 36.8 && !_isAlertShowing) {
+        _isAlertShowing = true;
+        _showVitalIssueDialog();
+      }
+    });
+  }
+
+  // Alert Dialog 표시 함수
+  void _showVitalIssueDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            width: 300,
+            decoration: BoxDecoration(
+              color: Colors.deepOrange,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Align(
+                  alignment: Alignment.topRight,
+                  child: IconButton(
+                    icon: Icon(Icons.close, color: Colors.white),
+                    onPressed: () {
+                      _isAlertShowing = false;
+                      Navigator.of(context).pop();
+                    },
+                  ),
+                ),
+                Image.asset(
+                  'assets/dog-alert.png',  // 알림창에 표시할 강아지 이미지
+                  width: 150,
+                  height: 150,
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    children: [
+                      Text(
+                        '! Vital Issue !',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        '아이의 행동에 주의를 기울여 주세요',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: Colors.black,
+                        ),
+                        onPressed: () {
+                          _isAlertShowing = false;
+                          Navigator.of(context).pop();
+                        },
+                        child: Text('확인'),
+                      ),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: Colors.black,
+                        ),
+                        onPressed: () {
+                          _sendPostRequest();
+                          _isAlertShowing = false;
+                          Navigator.of(context).pop();
+                        },
+                        child: Text('PET EYE'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _sendPostRequest() async {
+    try {
+      final response = await http.post(
+        Uri.parse('http://devse.gonetis.com:12478/send-signal'),  // 제공받은 도메인 주소
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'signal': '1'}),
+      );
+
+      if (response.statusCode == 200) {
+        print('Signal sent successfully');
+        print('Server response: ${response.body}');  // 서버 응답 확인
+      } else {
+        print('Failed to send signal. Status code: ${response.statusCode}');
+        print('Error response: ${response.body}');
+      }
+    } catch (e) {
+      print('Error sending POST request: $e');
+    }
   }
 
   @override
@@ -134,20 +264,17 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
                       fontSize: 16,
                     ),
                   ),
-                  ValueListenableBuilder<String>(
-                    valueListenable: ValueNotifier(_movement),
-                    builder: (context, movement, child) {
-                      return Image.asset(
-                        movement == '뛰기'
-                            ? 'assets/running-dog-silhouette_47203.png'
-                            : movement == '걷기'
-                            ? 'assets/dog-facing-right.png'
-                            : 'assets/sitting-dog-icon.png',  // 정지일 때도 기본 이미지
-                        width: 24,
-                        height: 24,
-                      );
-                    },
-                  ),
+                  Obx(() {
+                    return Image.asset(
+                      _movement.value == '뛰기'
+                          ? 'assets/running-dog-silhouette_47203.png'
+                          : _movement.value == '걷기'
+                          ? 'assets/dog-facing-right.png'
+                          : 'assets/sitting-dog-icon.png',  // 정지 상태일 때의 이미지
+                      width: 24,
+                      height: 24,
+                    );
+                  }),
                 ],
               ),
             ),
@@ -222,7 +349,21 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
                               ),
                               child: ListTile(
                                 title: Text(data.device.name.isEmpty ? 'Unknown Device' : data.device.name),
-                                subtitle: Text(data.device.id.id),
+                                subtitle: Obx(() {
+                                  if (controller.connectingDeviceId.value == data.device.id.id) {
+                                    return Text(
+                                      'Connecting...',
+                                      style: TextStyle(color: Colors.orange),
+                                    );
+                                  } else if (controller.connectedDevice?.id.id == data.device.id.id &&
+                                      controller.isConnected.value) {
+                                    return Text(
+                                      'Connected',
+                                      style: TextStyle(color: Colors.green),
+                                    );
+                                  }
+                                  return Text(data.device.id.id);
+                                }),
                                 trailing: Text(data.rssi.toString()),
                                 onTap: () => controller.connectToDevice(data.device),
                               ),

@@ -38,8 +38,8 @@ class PetProfileScreen extends StatefulWidget {
 class _PetProfileScreenState extends State<PetProfileScreen> {
   final BleController controller = Get.put(BleController());
   RxString _movement = '정지'.obs;
-  double _threshold1 = 1.0;
-  double _threshold2 = 5.0;
+  double _threshold1 = 0.5;
+  double _threshold2 = 2.0;
   Timer? _timer;
 
   bool _isAlertShowing = false; //팝업창
@@ -52,19 +52,33 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
   }
 
   void _startTimer() {
-    _timer = Timer.periodic(Duration(seconds: 1), (timer) {
+    _timer = Timer.periodic(Duration(seconds: 2), (timer) {  // 1초에서 2초로 변경
       if (controller.magnitudes.isNotEmpty) {
-        double averageMagnitude = controller.magnitudes.reduce((a, b) => a + b) / controller.magnitudes.length;
-        setState(() {
-          if (averageMagnitude < _threshold1) {
-            _movement.value = '정지';
-          } else if (averageMagnitude < _threshold2) {
-            _movement.value = '걷기';
-          } else {
-            _movement.value = '뛰기';
-          }
-        });
+        // 최근 N개의 데이터만 사용하여 평균 계산
+        List<double> recentMagnitudes = controller.magnitudes.length > 5
+            ? controller.magnitudes.sublist(controller.magnitudes.length - 5)
+            : controller.magnitudes;
+
+        double averageMagnitude = recentMagnitudes.reduce((a, b) => a + b) / recentMagnitudes.length;
+
+        // 상태 변경 로직에 히스테리시스 추가
+        if (averageMagnitude < _threshold1) {
+          _movement.value = '정지';
+        } else if (averageMagnitude < _threshold2) {
+          _movement.value = '걷기';
+        } else {
+          _movement.value = '뛰기';
+        }
+
+        // 일정 시간 동안 데이터가 없으면 정지 상태로 전환
+        if (DateTime.now().difference(controller.lastUpdateTime) > Duration(seconds: 3)) {
+          _movement.value = '정지';
+        }
+
         controller.magnitudes.clear();
+      } else {
+        // 데이터가 없으면 정지 상태로 전환
+        _movement.value = '정지';
       }
     });
   }

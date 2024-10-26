@@ -32,6 +32,8 @@ class BleController extends GetxController {
   // 운동량 측정을 위한 리스트 추가
   RxList<double> magnitudes = <double>[].obs;
 
+  DateTime lastUpdateTime = DateTime.now();
+
   @override
   void dispose() {
     connectedDevice?.disconnect();
@@ -138,7 +140,13 @@ class BleController extends GetxController {
         double gz = double.tryParse(dataParts[7].trim()) ?? 0;
 
         double magnitude = sqrt(ax * ax + ay * ay + az * az + gx * gx + gy * gy + gz * gz);
-        magnitudes.add(magnitude);
+
+        if(magnitude > 0.1)
+          {
+            magnitudes.add(magnitude);
+            lastUpdateTime = DateTime.now();
+          }
+
         print("Calculated magnitude: $magnitude");
 
         if (magnitudes.length > 100) {

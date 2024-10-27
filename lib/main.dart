@@ -252,11 +252,21 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
               ),
               child: Column(
                 children: [
-                  CircleAvatar(
-                    radius: 50,
-                    backgroundColor: Colors.grey[300],
-                    child: const Icon(Icons.pets, size: 50, color: Colors.white),
+                  Container(
+                    width: 100,
+                    height: 100,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.grey[300],
+                    ),
+                    child: ClipOval(
+                      child: Image.asset(
+                        'assets/hiro-profile.png',
+                        fit: BoxFit.cover,
+                      ),
+                    )
                   ),
+
                   const SizedBox(height: 8),
                   const Row(
                     mainAxisAlignment: MainAxisAlignment.center,

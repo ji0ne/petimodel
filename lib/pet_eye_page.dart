@@ -1,4 +1,5 @@
 // pet_eye_page.dart
+import 'package:firstnote/pet_eye_album_page.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';  // 비디오 재생을 위해 추가
 import 'package:get/get.dart';
@@ -42,81 +43,104 @@ class _PetEyePageState extends State<PetEyePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('PET-EYE'),
-        backgroundColor: Colors.deepOrange,
-        actions: [
-          IconButton(
-            icon: Icon(Icons.refresh),
-            onPressed: () {
-              // 새로고침 로직
-              setState(() {
-                _initializeVideoPlayer();
-              });
-            },
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // 비디오 플레이어
+          _isVideoInitialized
+              ? VideoPlayer(_videoController)
+              : Center(child: CircularProgressIndicator()),
+
+          // 그라데이션 오버레이 (텍스트 가독성을 위해)
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withOpacity(0.3),
+                    Colors.black.withOpacity(0),
+                    Colors.black.withOpacity(0.7),
+                  ],
+                  stops: const [0.0, 0.5, 1.0],
+                ),
+              ),
+            ),
+          ),
+
+          // 상단 앱바
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.arrow_back, color: Colors.white),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.folder, color: Colors.white),
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => PetEyeAlbumPage(),
+                          ),
+                        );
+                        // 갤러리 페이지로 이동
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // 하단 정보
+          Positioned(
+            bottom: 20,
+            left: 20,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '2024.07.11',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    shadows: [
+                      Shadow(
+                        offset: Offset(1, 1),
+                        blurRadius: 3,
+                        color: Colors.black.withOpacity(0.5),
+                      ),
+                    ],
+                  ),
+                ),
+                Text(
+                  '히로의 하루',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    shadows: [
+                      Shadow(
+                        offset: Offset(1, 1),
+                        blurRadius: 3,
+                        color: Colors.black.withOpacity(0.5),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // 최근 이미지 표시
-            Container(
-              height: 200,
-              width: double.infinity,
-              margin: EdgeInsets.all(8),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.network(
-                  '$baseUrl/uploaded_jpeg',
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Center(child: Text('No recent image'));
-                  },
-                ),
-              ),
-            ),
-
-            // 최근 비디오 표시
-            Container(
-              height: 200,
-              width: double.infinity,
-              margin: EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                color: Colors.black,
-              ),
-              child: _isVideoInitialized
-                  ? ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: AspectRatio(
-                  aspectRatio: _videoController.value.aspectRatio,
-                  child: VideoPlayer(_videoController),
-                ),
-              )
-                  : Center(child: CircularProgressIndicator()),
-            ),
-
-            // MJPEG 스트림 표시
-            Container(
-              height: 200,
-              width: double.infinity,
-              margin: EdgeInsets.all(8),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.network(
-                  '$baseUrl/uploaded_mjpeg',
-                  fit: BoxFit.cover,
-                  headers: {'Connection': 'keep-alive'},
-                  gaplessPlayback: true,  // MJPEG 스트리밍을 위한 설정
-                  errorBuilder: (context, error, stackTrace) {
-                    return Center(child: Text('No MJPEG stream available'));
-                  },
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

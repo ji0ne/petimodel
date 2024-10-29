@@ -101,14 +101,14 @@ class BleController extends GetxController {
         try {
          String temperStr = temperatureData.value = parts[0].trim();
          double temperatureValue = double.parse(temperStr);
-         double adjustTemperature = temperatureValue + 9.60;
+         double adjustTemperature = temperatureValue + 3.40;
          temperatureData.value = adjustTemperature.toStringAsFixed(1);
          print("Temperature updated: ${temperatureData.value}");
 
          // 심박수 처리 ('V' 제거하고 처리)
          String bpmStr = parts[1].replaceAll('V', '').trim();
          double bpmValue = double.parse(bpmStr);
-         double adjustedBpm = bpmValue + 30.0;
+         double adjustedBpm = bpmValue + 60.0;
          bpmData.value = adjustedBpm.toStringAsFixed(1);
          print("BPM updated: ${bpmData.value}");
 

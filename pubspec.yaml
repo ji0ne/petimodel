@@ -38,6 +38,9 @@ dependencies:
   flutter_blue_plus: ^1.0.0  # 현재 설치된 버전 확인 후 추가
   get: ^4.6.1
   permission_handler: ^10.2.0
+  http: ^1.2.2
+  video_player: ^2.8.1
+  webview_flutter: ^4.4.2
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -57,6 +60,9 @@ flutter:
   assets:
     - assets/dog-facing-right.png
     - assets/running-dog-silhouette_47203.png
+    - assets/sitting-dog-icon.png
+    - assets/dog-alert.png
+    - assets/hiro-profile.png
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.

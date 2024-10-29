@@ -1,4 +1,5 @@
 import 'package:firstnote/ble_controller.dart';
+import 'package:firstnote/live_stream_page.dart';
 import 'package:firstnote/pet_eye_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
@@ -38,8 +39,9 @@ class PetProfileScreen extends StatefulWidget {
 class _PetProfileScreenState extends State<PetProfileScreen> {
   final BleController controller = Get.put(BleController());
   RxString _movement = '정지'.obs;
-  double _threshold1 = 0.5;
-  double _threshold2 = 2.0;
+
+  double _threshold1 = 0.3;
+  double _threshold2 = 0.8;
   Timer? _timer;
 
   bool _isAlertShowing = false; //팝업창
@@ -52,26 +54,26 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
   }
 
   void _startTimer() {
-    _timer = Timer.periodic(Duration(seconds: 2), (timer) {  // 1초에서 2초로 변경
+    _timer = Timer.periodic(Duration(milliseconds: 100), (timer) {  // 1초에서 2초로 변경
       if (controller.magnitudes.isNotEmpty) {
         // 최근 N개의 데이터만 사용하여 평균 계산
-        List<double> recentMagnitudes = controller.magnitudes.length > 5
-            ? controller.magnitudes.sublist(controller.magnitudes.length - 5)
+        List<double> recentMagnitudes = controller.magnitudes.length > 3
+            ? controller.magnitudes.sublist(controller.magnitudes.length - 3)
             : controller.magnitudes;
 
         double averageMagnitude = recentMagnitudes.reduce((a, b) => a + b) / recentMagnitudes.length;
 
         // 상태 변경 로직에 히스테리시스 추가
-        if (averageMagnitude < _threshold1) {
+        if (averageMagnitude < 0.1) {
           _movement.value = '정지';
-        } else if (averageMagnitude < _threshold2) {
+        } else if (averageMagnitude >= 0.1 && averageMagnitude < 0.5) {
           _movement.value = '걷기';
-        } else {
+        } else if(averageMagnitude >= 0.5) {
           _movement.value = '뛰기';
         }
 
         // 일정 시간 동안 데이터가 없으면 정지 상태로 전환
-        if (DateTime.now().difference(controller.lastUpdateTime) > Duration(seconds: 3)) {
+        if (DateTime.now().difference(controller.lastUpdateTime) > Duration(milliseconds: 300)) {
           _movement.value = '정지';
         }
 
@@ -86,7 +88,7 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
   void _monitorTemperature() {
     ever(controller.temperatureData, (String temp) {
       double temperature = double.tryParse(temp) ?? 0;
-      if (temperature >= 36.8 && !_isAlertShowing) {
+      if (temperature >= 37.4 && !_isAlertShowing) {
         _isAlertShowing = true;
         _showVitalIssueDialog();
       }
@@ -237,7 +239,12 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
                   const Spacer(),
                   IconButton(
                     icon: const Icon(Icons.videocam, color: Colors.deepOrange),
-                    onPressed: () {},
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => LiveStreamPage()),
+                      );
+                    },
                   ),
                 ],
               ),

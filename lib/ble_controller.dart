@@ -29,9 +29,6 @@ class BleController extends GetxController {
   Rx<String?> connectingDeviceId = Rx<String?>(null);
   RxBool isConnected = false.obs;
 
-  // 운동량 측정을 위한 리스트 추가
-  RxList<double> magnitudes = <double>[].obs;
-
   DateTime lastUpdateTime = DateTime.now();
 
   @override
@@ -117,45 +114,13 @@ class BleController extends GetxController {
         }
       } else if (data.contains('!')) {  // 자이로/가속도 데이터
         completeData.value += data;
-        _processMotionData(completeData.value);
+        print("Accumulating data: ${completeData.value}");
         completeData.value = "";
       } else {
         completeData.value += data;
         print("Accumulating data: ${completeData.value}");
       }
     });
-  }
-
-  void _processMotionData(String motionData) {
-    List<String> dataParts = motionData.split('|');
-    print("Processing motion data parts: $dataParts");
-
-    if (dataParts.length >= 8) {
-      try {
-        double ax = double.tryParse(dataParts[2].trim()) ?? 0;
-        double ay = double.tryParse(dataParts[3].trim()) ?? 0;
-        double az = double.tryParse(dataParts[4].trim()) ?? 0;
-        double gx = double.tryParse(dataParts[5].trim()) ?? 0;
-        double gy = double.tryParse(dataParts[6].trim()) ?? 0;
-        double gz = double.tryParse(dataParts[7].trim()) ?? 0;
-
-        double magnitude = sqrt(ax * ax + ay * ay + az * az + gx * gx + gy * gy + gz * gz);
-
-        if(magnitude > 0.1)
-          {
-            magnitudes.add(magnitude);
-            lastUpdateTime = DateTime.now();
-          }
-
-        print("Calculated magnitude: $magnitude");
-
-        if (magnitudes.length > 100) {
-          magnitudes.removeAt(0);
-        }
-      } catch (e) {
-        print("Error processing motion data: $e");
-      }
-    }
   }
 
   Future<void> sendData(int number) async {

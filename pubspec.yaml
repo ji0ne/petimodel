@@ -41,6 +41,8 @@ dependencies:
   http: ^1.2.2
   video_player: ^2.8.1
   webview_flutter: ^4.4.2
+  onnxruntime: ^1.4.1
+  path_provider: ^2.1.4
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -63,6 +65,7 @@ flutter:
     - assets/sitting-dog-icon.png
     - assets/dog-alert.png
     - assets/hiro-profile.png
+    - assets/model/wandb_model.onnx
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.

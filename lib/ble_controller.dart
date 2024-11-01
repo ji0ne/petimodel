@@ -1,35 +1,43 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:get/get.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'behavior_prediction.dart';
+import 'package:onnxruntime/onnxruntime.dart';
 
 class BleController extends GetxController {
   BluetoothDevice? connectedDevice;
   List<BluetoothService> services = [];
   StreamSubscription<BluetoothDeviceState>? _deviceStateSubscription;
   StreamSubscription<List<int>>? _characteristicSubscription;
-
   RxList<String> receivedDataList = <String>[].obs;
   BluetoothCharacteristic? writeCharacteristic;
 
   // 반응형 변수로 변경
   RxString completeData = "".obs;
-  RxString bpmData = "74".obs;  // 초기값 설정
+  RxString bpmData = "74".obs; // 초기값 설정
   RxString temperatureData = "36.5".obs;
 
-  // 다른 클래스에서 사용할 수신한 전체 데이터 변수
-  String get s_completeData => completeData.value;
-  String get s_temperature => temperatureData.value;
+  // 추가된 getter
   String get s_bpm => bpmData.value;
+  String get s_temperature => temperatureData.value;
 
+  // BLE 관련 상태 변수
   var isScanning = false.obs;
-
   Rx<String?> connectingDeviceId = Rx<String?>(null);
   RxBool isConnected = false.obs;
-
   DateTime lastUpdateTime = DateTime.now();
+
+  // BehaviorPrediction 인스턴스
+  late final BehaviorPrediction behaviorPrediction;
+
+  // 생성자: BehaviorPrediction 인스턴스 생성
+  BleController() {
+    behaviorPrediction = BehaviorPrediction();
+  }
+
+  // 추가된 scanResults getter
+  Stream<List<ScanResult>> get scanResults => FlutterBluePlus.scanResults;
 
   @override
   void dispose() {
@@ -40,19 +48,11 @@ class BleController extends GetxController {
   }
 
   Future<void> scanDevices() async {
-    if (await Permission.bluetoothScan.isGranted &&
-        await Permission.bluetoothConnect.isGranted) {
-      isScanning.value = true;
-      FlutterBluePlus.startScan(timeout: Duration(seconds: 10));
-      await Future.delayed(Duration(seconds: 10));
-      FlutterBluePlus.stopScan();
-      isScanning.value = false;
-    } else {
-      await [
-        Permission.bluetoothScan,
-        Permission.bluetoothConnect,
-      ].request();
-    }
+    isScanning.value = true;
+    FlutterBluePlus.startScan(timeout: Duration(seconds: 10));
+    await Future.delayed(Duration(seconds: 10));
+    FlutterBluePlus.stopScan();
+    isScanning.value = false;
   }
 
   Future<void> connectToDevice(BluetoothDevice device) async {
@@ -81,78 +81,75 @@ class BleController extends GetxController {
       }
     } catch (e) {
       print("Connection error: $e");
-    }finally{
+    } finally {
       connectingDeviceId.value = null;
     }
   }
 
   void _subscribeToCharacteristic(BluetoothCharacteristic characteristic) {
     characteristic.setNotifyValue(true);
+
+    // 가속도와 자이로 데이터를 각각 저장할 배열
+    List<double> accelerometerData = [0, 0, 0];
+    List<double> gyroscopeData = [0, 0, 0];
+    List<List<double>> dataBuffer = [];
+
     _characteristicSubscription = characteristic.value.listen((value) {
       String data = utf8.decode(value);
       print("Raw received data: $data");
 
-      if (data.contains('V')) {  // 백슬래시를 포함한 데이터는 체온/심박수
+      if (data.contains('V')) {  // Vital signs data
         List<String> parts = data.split('|');
-        print("Vital signs parts: $parts");
         try {
-         String temperStr = temperatureData.value = parts[0].trim();
-         double temperatureValue = double.parse(temperStr);
-         double adjustTemperature = temperatureValue + 3.40;
-         temperatureData.value = adjustTemperature.toStringAsFixed(1);
-         print("Temperature updated: ${temperatureData.value}");
+          String temperStr = parts[0].trim();
+          double temperatureValue = double.parse(temperStr);
+          double adjustTemperature = temperatureValue + 3.40;
+          temperatureData.value = adjustTemperature.toStringAsFixed(1);
 
-         // 심박수 처리 ('V' 제거하고 처리)
-         String bpmStr = parts[1].replaceAll('V', '').trim();
-         double bpmValue = double.parse(bpmStr);
-         double adjustedBpm = bpmValue + 60.0;
-         bpmData.value = adjustedBpm.toStringAsFixed(1);
-         print("BPM updated: ${bpmData.value}");
-
+          String bpmStr = parts[1].replaceAll('V', '').trim();
+          double bpmValue = double.parse(bpmStr);
+          double adjustedBpm = bpmValue + 60.0;
+          bpmData.value = adjustedBpm.toStringAsFixed(1);
         } catch (e) {
           print("Error processing temp/BPM data: $e");
         }
-      } else if (data.contains('!')) {  // 자이로/가속도 데이터
-        completeData.value += data;
-        print("Accumulating data: ${completeData.value}");
-        completeData.value = "";
-      } else {
-        completeData.value += data;
-        print("Accumulating data: ${completeData.value}");
+      } else if (data.contains('!')) {  // Gyroscope data
+        data = data.replaceAll('!', '');
+        List<String> dataParts = data.split(',');
+
+        if (dataParts.length == 3) {
+          gyroscopeData[0] = double.tryParse(dataParts[0].trim()) ?? 0;
+          gyroscopeData[1] = double.tryParse(dataParts[1].trim()) ?? 0;
+          gyroscopeData[2] = double.tryParse(dataParts[2].trim()) ?? 0;
+        }
+      } else {  // Accelerometer data
+        data = data.replaceAll('|', '');
+        List<String> dataParts = data.split(',');
+
+        if (dataParts.length == 3) {
+          accelerometerData[0] = double.tryParse(dataParts[0].trim()) ?? 0;
+          accelerometerData[1] = double.tryParse(dataParts[1].trim()) ?? 0;
+          accelerometerData[2] = double.tryParse(dataParts[2].trim()) ?? 0;
+        }
+      }
+
+      // 버퍼에 데이터를 무조건 추가
+      dataBuffer.add([...accelerometerData, ...gyroscopeData]);
+      print("현재 버퍼 크기: ${dataBuffer.length}");
+
+      // 버퍼에 데이터가 15개 이상 쌓이면 처리
+      if (dataBuffer.length >= 15) {
+        _processDataBuffer(dataBuffer);
+        dataBuffer.clear(); // 버퍼 초기화
       }
     });
   }
 
-  Future<void> sendData(int number) async {
-    if (number != 1) {
-      print("Invalid number: Only 1 is supported");
-      return;
+
+  // 버퍼에 쌓인 데이터를 처리하는 메서드
+  void _processDataBuffer(List<List<double>> dataBuffer) {
+    for (var data in dataBuffer) {
+      behaviorPrediction.processCompleteData(data);
     }
-
-    if (connectedDevice == null) {
-      print("No device connected");
-      return;
-    }
-
-    if (writeCharacteristic == null) {
-      print("Write characteristic not found");
-      return;
-    }
-
-    try {
-      List<int> byteArray = [0x01];
-      await writeCharacteristic!.write(byteArray, withoutResponse: true);
-      print('Data sent: 0x01');
-    } catch (e) {
-      print("Error sending data: $e");
-    }
-  }
-
-  Stream<List<ScanResult>> get scanResults => FlutterBluePlus.scanResults;
-
-  @override
-  void onClose() {
-    _deviceStateSubscription?.cancel();
-    super.onClose();
   }
 }

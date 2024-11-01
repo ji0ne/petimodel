@@ -39,7 +39,6 @@ class PetProfileScreen extends StatefulWidget {
 
 class _PetProfileScreenState extends State<PetProfileScreen> {
   final BleController controller = Get.put(BleController());
-  final BehaviorPrediction behaviorPrediction = BehaviorPrediction();
   RxString _movement = '정지'.obs;
 
   double _threshold1 = 0.3;
@@ -55,10 +54,11 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
     _monitorTemperature();
   }
 
+
   void _startTimer() {
-    _timer = Timer.periodic(Duration(milliseconds: 200), (timer) {
+    _timer = Timer.periodic(Duration(milliseconds: 1000), (timer) {
       // BehaviorPrediction 인스턴스를 통해 predictedBehavior 값을 가져옵니다
-      String behavior = behaviorPrediction.predictedBehavior.value;
+      String behavior = controller.behaviorPrediction.predictedBehavior.value;
 
       if (behavior == '뛰기') {
         _movement.value = '뛰기';

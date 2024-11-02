@@ -12,6 +12,8 @@ import 'health_assessment.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
+import 'notification_service.dart';
+
 void main() {
   runApp(const MyApp());
 }
@@ -54,7 +56,7 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
     _startTimer();
     healthAssessment = HealthAssessment(controller);
     _startHealthCheckTimer();
-    // _monitorTemperature();
+    NotificationService().initialize();
   }
 
 
@@ -66,11 +68,11 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
   }
 
   void _startHealthCheckTimer() {
-    _healthCheckTimer = Timer.periodic(Duration(seconds: 1), (timer) {  // 더 빠른 응답을 위해 1초로 변경
-      String healthStatus = healthAssessment.assessHealth();
-      if (healthStatus == '위험' && !_isAlertShowing) {
-        _isAlertShowing = true;
-        _showVitalIssueDialog();
+    _healthCheckTimer = Timer.periodic(Duration(seconds: 1), (timer) {
+      // 심박수 체크로 변경
+      double bpm = double.tryParse(controller.bpmData.value) ?? 0;
+      if (bpm >= 100) {  // 100 BPM 이상일 때
+        NotificationService().showBpmAlert(controller.bpmData.value);
       }
     });
   }
@@ -105,8 +107,8 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
                 ),
                 Image.asset(
                   'assets/dog-alert.png',  // 알림창에 표시할 강아지 이미지
-                  width: 150,
-                  height: 150,
+                  width: 100,
+                  height: 100,
                 ),
                 Padding(
                   padding: const EdgeInsets.all(16.0),

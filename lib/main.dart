@@ -43,8 +43,6 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
   late final HealthAssessment healthAssessment; // HealthAssessment 인스턴스 추가
   RxString _movement = '정지'.obs;
 
-  double _threshold1 = 0.3;
-  double _threshold2 = 0.8;
   Timer? _timer;
   Timer? _healthCheckTimer; // _healthCheckTimer 변수 추가
 
@@ -61,36 +59,15 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
 
 
   void _startTimer() {
-    _timer = Timer.periodic(Duration(milliseconds: 1000), (timer) {
-      // BehaviorPrediction 인스턴스를 통해 predictedBehavior 값을 가져옵니다
+    _timer = Timer.periodic(Duration(milliseconds: 500), (timer) {  // 더 빠른 업데이트를 위해 500ms로 변경
       String behavior = controller.behaviorPrediction.predictedBehavior.value;
-
-      if (behavior == '뛰기') {
-        _movement.value = '뛰기';
-      } else if (behavior == '걷기') {
-        _movement.value = '걷기';
-      } else {
-        _movement.value = '정지';
-      }
+      _movement.value = behavior;  // 직접 값 할당 (이미 '정지', '걷기', '뛰기' 중 하나)
     });
   }
 
-
-  // void _monitorTemperature() {
-  //   ever(controller.temperatureData, (String temp) {
-  //     double temperature = double.tryParse(temp) ?? 0;
-  //     if (temperature >= 37.4 && !_isAlertShowing) {
-  //       _isAlertShowing = true;
-  //       _showVitalIssueDialog();
-  //     }
-  //   });
-  // }
-
-  // 주기적으로 건강 상태를 확인하는 타이머 설정
   void _startHealthCheckTimer() {
-    _healthCheckTimer = Timer.periodic(Duration(seconds: 3), (timer) {
+    _healthCheckTimer = Timer.periodic(Duration(seconds: 1), (timer) {  // 더 빠른 응답을 위해 1초로 변경
       String healthStatus = healthAssessment.assessHealth();
-
       if (healthStatus == '위험' && !_isAlertShowing) {
         _isAlertShowing = true;
         _showVitalIssueDialog();
@@ -216,6 +193,7 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    _healthCheckTimer?.cancel();
     super.dispose();
   }
 
@@ -300,10 +278,11 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
                     ),
                   ),
                   Obx(() {
+                    final currentState = controller.behaviorPrediction.predictedBehavior.value;
                     return Image.asset(
-                      _movement.value == '뛰기'
+                      currentState == '뛰기'
                           ? 'assets/running-dog-silhouette_47203.png'
-                          : _movement.value == '걷기'
+                          : currentState == '걷기'
                           ? 'assets/dog-facing-right.png'
                           : 'assets/sitting-dog-icon.png',  // 정지 상태일 때의 이미지
                       width: 24,

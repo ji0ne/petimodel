@@ -28,6 +28,14 @@ class BleController extends GetxController {
   RxBool isConnected = false.obs;
   DateTime lastUpdateTime = DateTime.now();
 
+
+  // 움직임 감지 관련 변수들
+  List<double> _previousAccelerometer = [0, 0, 0];
+  List<double> _previousGyroscope = [0, 0, 0];
+  final double movementThreshold = 0.1;  // 걷기 판단 임계값
+  final double runningThreshold = 0.2;   // 뛰기 판단 임계값
+
+
   // BehaviorPrediction 인스턴스
   late final BehaviorPrediction behaviorPrediction;
 
@@ -94,7 +102,7 @@ class BleController extends GetxController {
     // 가속도와 자이로 데이터를 각각 저장할 배열
     List<double> accelerometerData = [0, 0, 0];
     List<double> gyroscopeData = [0, 0, 0];
-    List<List<double>> dataBuffer = [];
+    //List<List<double>> dataBuffer = [];
 
     _characteristicSubscription = characteristic.value.listen((value) {
       String data = utf8.decode(value);
@@ -119,7 +127,7 @@ class BleController extends GetxController {
         }
       }else if (data.endsWith('A')) {  // 가속도 데이터
         data = data.replaceAll('A', '');
-        List<String> dataParts = data.split(',');
+        List<String> dataParts = data.split('|');
 
         if (dataParts.length == 3) {
           accelerometerData[0] = double.tryParse(dataParts[0].trim()) ?? 0;
@@ -128,24 +136,53 @@ class BleController extends GetxController {
         }
       }  else if (data.contains('!')) {  // Gyroscope data
         data = data.replaceAll('!', '');
-        List<String> dataParts = data.split(',');
+        List<String> dataParts = data.split('|');
 
         if (dataParts.length == 3) {
           gyroscopeData[0] = double.tryParse(dataParts[0].trim()) ?? 0;
           gyroscopeData[1] = double.tryParse(dataParts[1].trim()) ?? 0;
           gyroscopeData[2] = double.tryParse(dataParts[2].trim()) ?? 0;
 
-          // 자이로 데이터가 도착하면 한 세트의 데이터가 완성된 것으로 간주
-          dataBuffer.add([...accelerometerData, ...gyroscopeData]);
-          print("현재 버퍼 크기: ${dataBuffer.length}");
+          // 자이로 데이터가 들어왔을 때 움직임 상태 판단
+          _detectMovement(accelerometerData, gyroscopeData);
 
-          if (dataBuffer.length >= 15) {
-            _processDataBuffer(dataBuffer);
-            dataBuffer.clear();
-          }
+          // 현재 데이터를 이전 데이터로 저장
+          _previousAccelerometer = List.from(accelerometerData);
+          _previousGyroscope = List.from(gyroscopeData);
+
         }
       }
     });
+  }
+
+  void _detectMovement(List<double> currentAcc, List<double> currentGyro) {
+
+    print("활동_Previous Acc: $_previousAccelerometer");
+    print("활동_Current Acc: $currentAcc");
+    print("활동_Previous Gyro: $_previousGyroscope");
+    print("활동_Current Gyro: $currentGyro");
+
+
+    // 가속도와 자이로 변화량 계산
+    double accDiff = 0;
+    double gyroDiff = 0;
+
+    for (int i = 0; i < 3; i++) {
+      accDiff += (currentAcc[i] - _previousAccelerometer[i]).abs();
+      gyroDiff += (currentGyro[i] - _previousGyroscope[i]).abs();
+    }
+
+    // 움직임 강도에 따른 상태 구분
+    if (accDiff > runningThreshold || gyroDiff > runningThreshold) {
+      behaviorPrediction.predictedBehavior.value = '뛰기';
+    } else if (accDiff > movementThreshold || gyroDiff > movementThreshold) {
+      behaviorPrediction.predictedBehavior.value = '걷기';
+    } else {
+      behaviorPrediction.predictedBehavior.value = '정지';
+    }
+
+    print("Movement detection: acc_diff=$accDiff, gyro_diff=$gyroDiff, state=${behaviorPrediction.predictedBehavior.value}");
+
   }
 
   void _processReceivedPacket(String packet) {
@@ -180,10 +217,4 @@ class BleController extends GetxController {
     }
   }
 
-  // 버퍼에 쌓인 데이터를 처리하는 메서드
-  void _processDataBuffer(List<List<double>> dataBuffer) {
-    for (var data in dataBuffer) {
-      behaviorPrediction.processCompleteData(data);
-    }
-  }
 }

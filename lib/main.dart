@@ -7,6 +7,7 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:get/get.dart';
 import 'dart:async';
 import 'dart:math';
+import 'health_assessment.dart';
 
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -39,11 +40,13 @@ class PetProfileScreen extends StatefulWidget {
 
 class _PetProfileScreenState extends State<PetProfileScreen> {
   final BleController controller = Get.put(BleController());
+  late final HealthAssessment healthAssessment; // HealthAssessment 인스턴스 추가
   RxString _movement = '정지'.obs;
 
   double _threshold1 = 0.3;
   double _threshold2 = 0.8;
   Timer? _timer;
+  Timer? _healthCheckTimer; // _healthCheckTimer 변수 추가
 
   bool _isAlertShowing = false; //팝업창
 
@@ -51,7 +54,9 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
   void initState() {
     super.initState();
     _startTimer();
-    _monitorTemperature();
+    healthAssessment = HealthAssessment(controller);
+    _startHealthCheckTimer();
+    // _monitorTemperature();
   }
 
 
@@ -71,15 +76,28 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
   }
 
 
-  void _monitorTemperature() {
-    ever(controller.temperatureData, (String temp) {
-      double temperature = double.tryParse(temp) ?? 0;
-      if (temperature >= 37.4 && !_isAlertShowing) {
+  // void _monitorTemperature() {
+  //   ever(controller.temperatureData, (String temp) {
+  //     double temperature = double.tryParse(temp) ?? 0;
+  //     if (temperature >= 37.4 && !_isAlertShowing) {
+  //       _isAlertShowing = true;
+  //       _showVitalIssueDialog();
+  //     }
+  //   });
+  // }
+
+  // 주기적으로 건강 상태를 확인하는 타이머 설정
+  void _startHealthCheckTimer() {
+    _healthCheckTimer = Timer.periodic(Duration(seconds: 3), (timer) {
+      String healthStatus = healthAssessment.assessHealth();
+
+      if (healthStatus == '위험' && !_isAlertShowing) {
         _isAlertShowing = true;
         _showVitalIssueDialog();
       }
     });
   }
+
 
   // Alert Dialog 표시 함수
   void _showVitalIssueDialog() {

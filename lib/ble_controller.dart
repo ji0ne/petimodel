@@ -32,8 +32,9 @@ class BleController extends GetxController {
   // 움직임 감지 관련 변수들
   List<double> _previousAccelerometer = [0, 0, 0];
   List<double> _previousGyroscope = [0, 0, 0];
-  final double movementThreshold = 0.1;  // 걷기 판단 임계값
-  final double runningThreshold = 0.2;   // 뛰기 판단 임계값
+  final double movementThreshold = 0.25;  // 걷기 판단 임계값
+  final double runningThreshold = 0.45;   // 뛰기 판단 임계값
+  final double stillThreshold = 0.15;     // 정지 판단 임계값
 
 
   // BehaviorPrediction 인스턴스
@@ -172,13 +173,14 @@ class BleController extends GetxController {
       gyroDiff += (currentGyro[i] - _previousGyroscope[i]).abs();
     }
 
-    // 움직임 강도에 따른 상태 구분
-    if (accDiff > runningThreshold || gyroDiff > runningThreshold) {
-      behaviorPrediction.predictedBehavior.value = '뛰기';
-    } else if (accDiff > movementThreshold || gyroDiff > movementThreshold) {
-      behaviorPrediction.predictedBehavior.value = '걷기';
-    } else {
+    // 움직임 강도에 따른 상태 구분 - 조건 순서 변경 및 정지 조건 강화
+    if (accDiff <= stillThreshold && gyroDiff <= stillThreshold) {
+      // 정지 조건을 먼저 검사하고, 더 엄격한 조건 적용
       behaviorPrediction.predictedBehavior.value = '정지';
+    } else if (accDiff > runningThreshold || gyroDiff > runningThreshold) {
+      behaviorPrediction.predictedBehavior.value = '뛰기';
+    } else {
+      behaviorPrediction.predictedBehavior.value = '걷기';
     }
 
     print("Movement detection: acc_diff=$accDiff, gyro_diff=$gyroDiff, state=${behaviorPrediction.predictedBehavior.value}");

@@ -1,5 +1,5 @@
 // pet_eye_page.dart
-import 'package:firstnote/pet_eye_album_page.dart';
+import 'package:petimodel/pet_eye_album_page.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';  // 비디오 재생을 위해 추가
 import 'package:get/get.dart';

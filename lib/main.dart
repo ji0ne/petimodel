@@ -1,7 +1,7 @@
-import 'package:firstnote/ble_controller.dart';
-import 'package:firstnote/live_stream_page.dart';
-import 'package:firstnote/pet_eye_page.dart';
-import 'package:firstnote/behavior_prediction.dart';
+import 'package:petimodel/ble_controller.dart';
+import 'package:petimodel/live_stream_page.dart';
+import 'package:petimodel/pet_eye_page.dart';
+import 'package:petimodel/behavior_prediction.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:get/get.dart';
@@ -365,7 +365,7 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
                       if (snapshot.hasData && snapshot.data!.isNotEmpty) {
                         List<ScanResult> filteredResults = snapshot.data!.where((result) {
                           String deviceName = result.device.name.toUpperCase();
-                          return deviceName.contains('DOG');
+                          return deviceName.contains('PET');
                         }).toList();
 
                         if (filteredResults.isEmpty) {

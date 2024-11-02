@@ -55,7 +55,7 @@ class _LiveStreamPageState extends State<LiveStreamPage> {
           if (isLoading)
             Center(
               child: CircularProgressIndicator(
-                color: Colors.deepOrange,
+                color: Colors.transparent,
               ),
             ),
         ],

@@ -86,6 +86,8 @@ class BleController extends GetxController {
     }
   }
 
+  StringBuffer _completeLog = StringBuffer();
+
   void _subscribeToCharacteristic(BluetoothCharacteristic characteristic) {
     characteristic.setNotifyValue(true);
 
@@ -98,6 +100,8 @@ class BleController extends GetxController {
       String data = utf8.decode(value);
       print("Raw received data: $data");
 
+      _processReceivedPacket(data);
+
       if (data.contains('V')) {  // Vital signs data
         List<String> parts = data.split('|');
         try {
@@ -108,22 +112,13 @@ class BleController extends GetxController {
 
           String bpmStr = parts[1].replaceAll('V', '').trim();
           double bpmValue = double.parse(bpmStr);
-          double adjustedBpm = bpmValue + 60.0;
+          double adjustedBpm = bpmValue + 55.0;
           bpmData.value = adjustedBpm.toStringAsFixed(1);
         } catch (e) {
           print("Error processing temp/BPM data: $e");
         }
-      } else if (data.contains('!')) {  // Gyroscope data
-        data = data.replaceAll('!', '');
-        List<String> dataParts = data.split(',');
-
-        if (dataParts.length == 3) {
-          gyroscopeData[0] = double.tryParse(dataParts[0].trim()) ?? 0;
-          gyroscopeData[1] = double.tryParse(dataParts[1].trim()) ?? 0;
-          gyroscopeData[2] = double.tryParse(dataParts[2].trim()) ?? 0;
-        }
-      } else {  // Accelerometer data
-        data = data.replaceAll('|', '');
+      }else if (data.endsWith('A')) {  // 가속도 데이터
+        data = data.replaceAll('A', '');
         List<String> dataParts = data.split(',');
 
         if (dataParts.length == 3) {
@@ -131,20 +126,59 @@ class BleController extends GetxController {
           accelerometerData[1] = double.tryParse(dataParts[1].trim()) ?? 0;
           accelerometerData[2] = double.tryParse(dataParts[2].trim()) ?? 0;
         }
-      }
+      }  else if (data.contains('!')) {  // Gyroscope data
+        data = data.replaceAll('!', '');
+        List<String> dataParts = data.split(',');
 
-      // 버퍼에 데이터를 무조건 추가
-      dataBuffer.add([...accelerometerData, ...gyroscopeData]);
-      print("현재 버퍼 크기: ${dataBuffer.length}");
+        if (dataParts.length == 3) {
+          gyroscopeData[0] = double.tryParse(dataParts[0].trim()) ?? 0;
+          gyroscopeData[1] = double.tryParse(dataParts[1].trim()) ?? 0;
+          gyroscopeData[2] = double.tryParse(dataParts[2].trim()) ?? 0;
 
-      // 버퍼에 데이터가 15개 이상 쌓이면 처리
-      if (dataBuffer.length >= 15) {
-        _processDataBuffer(dataBuffer);
-        dataBuffer.clear(); // 버퍼 초기화
+          // 자이로 데이터가 도착하면 한 세트의 데이터가 완성된 것으로 간주
+          dataBuffer.add([...accelerometerData, ...gyroscopeData]);
+          print("현재 버퍼 크기: ${dataBuffer.length}");
+
+          if (dataBuffer.length >= 15) {
+            _processDataBuffer(dataBuffer);
+            dataBuffer.clear();
+          }
+        }
       }
     });
   }
 
+  void _processReceivedPacket(String packet) {
+    String timeStamp = DateTime.now().toString().substring(11, 19);
+
+    // 패킷 종류별 처리
+    if (packet.endsWith('V')) {  // 심박, 체온 데이터로 새로운 세트 시작
+      _completeLog.clear();
+      _completeLog.write(packet);
+    }
+    else if (packet.endsWith('A')) {  // 가속도 데이터 추가
+      if (!_completeLog.isEmpty) {
+        _completeLog.write(" | ");
+        _completeLog.write(packet);
+      }
+    }
+    else if (packet.endsWith('!')) {  // 자이로 데이터로 한 세트 완성
+      if (!_completeLog.isEmpty) {
+        _completeLog.write(" | ");
+        _completeLog.write(packet);
+
+        String completeData = _completeLog.toString();
+        String formattedLog = "$timeStamp : $completeData";
+        print("Complete data set: $completeData");
+        receivedDataList.insert(0, formattedLog);
+        _completeLog.clear();
+      }
+    }
+
+    if (receivedDataList.length > 100) {
+      receivedDataList.removeRange(80, receivedDataList.length);
+    }
+  }
 
   // 버퍼에 쌓인 데이터를 처리하는 메서드
   void _processDataBuffer(List<List<double>> dataBuffer) {

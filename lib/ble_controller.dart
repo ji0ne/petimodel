@@ -34,7 +34,7 @@ class BleController extends GetxController {
   List<double> _previousGyroscope = [0, 0, 0];
   final double movementThreshold = 2.05;  // 걷기 판단 임계값
   final double runningThreshold = 2.45;   // 뛰기 판단 임계값
-  final double stillThreshold = 0.5;     // 정지 판단 임계값
+  final double stillThreshold = 0.64;     // 정지 판단 임계값
 
 
   // BehaviorPrediction 인스턴스

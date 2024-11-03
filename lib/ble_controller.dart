@@ -33,9 +33,9 @@ class BleController extends GetxController {
   // 움직임 감지 관련 변수들
   List<double> _previousAccelerometer = [0, 0, 0];
   List<double> _previousGyroscope = [0, 0, 0];
-  final double movementThreshold = 6.13;  // 걷기 판단 임계값
-  final double runningThreshold = 6.85;   // 뛰기 판단 임계값
-  final double stillThreshold = 2.56;     // 정지 판단 임계값
+  final double movementThreshold = 4.85;  // 걷기 판단 임계값
+  final double runningThreshold = 12.95;   // 뛰기 판단 임계값
+  final double stillThreshold = 2.85;     // 정지 판단 임계값
 
 
   // BehaviorPrediction 인스턴스

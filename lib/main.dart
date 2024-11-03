@@ -69,14 +69,18 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
 
   void _startHealthCheckTimer() {
     _healthCheckTimer = Timer.periodic(Duration(seconds: 1), (timer) {
-      // 심박수 체크로 변경
-      double bpm = double.tryParse(controller.bpmData.value) ?? 0;
-      if (bpm >= 100) {  // 100 BPM 이상일 때
-        NotificationService().showBpmAlert(controller.bpmData.value);
+      String healthStatus = healthAssessment.assessHealth();
+
+      if (healthStatus == '위험' || healthStatus == '주의') {
+        NotificationService().showHealthAlert(
+          healthStatus,
+          controller.temperatureData.value,
+          controller.bpmData.value,
+          controller.behaviorPrediction.predictedBehavior.value,
+        );
       }
     });
   }
-
 
   // Alert Dialog 표시 함수
   void _showVitalIssueDialog() {

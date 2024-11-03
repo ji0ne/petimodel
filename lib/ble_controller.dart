@@ -33,9 +33,9 @@ class BleController extends GetxController {
   // 움직임 감지 관련 변수들
   List<double> _previousAccelerometer = [0, 0, 0];
   List<double> _previousGyroscope = [0, 0, 0];
-  final double movementThreshold = 2.05;  // 걷기 판단 임계값
-  final double runningThreshold = 2.45;   // 뛰기 판단 임계값
-  final double stillThreshold = 0.64;     // 정지 판단 임계값
+  final double movementThreshold = 6.13;  // 걷기 판단 임계값
+  final double runningThreshold = 6.85;   // 뛰기 판단 임계값
+  final double stillThreshold = 2.56;     // 정지 판단 임계값
 
 
   // BehaviorPrediction 인스턴스
@@ -126,7 +126,8 @@ class BleController extends GetxController {
           // 체온 처리
           String temperStr = parts[0].trim();
           double temperatureValue = double.parse(temperStr);
-          double adjustTemperature = temperatureValue + 3.40;
+          //double adjustTemperature = temperatureValue + 3.40;
+          double adjustTemperature = temperatureValue;
           String newTemperature = adjustTemperature.toStringAsFixed(1);
 
           // 체온이 변경되었을 때만 심박수도 업데이트
@@ -137,8 +138,8 @@ class BleController extends GetxController {
             // 심박 업데이트
             if (parts.length > 1) {
               String bpmStr = parts[1].replaceAll('V', '').trim();
-              double bpmValue = double.parse(bpmStr) + (Random().nextDouble() * 2.5)+1.2;
-              String mainValue = (bpmValue + 59.12).round().toString();
+              double bpmValue = double.parse(bpmStr) + (Random().nextDouble() * 1.5)+1.2;
+              String mainValue = bpmValue.round().toString();
 
               String decimal = (Random().nextInt(9) + 1).toString();
               bpmData.value = '$mainValue.$decimal';
@@ -182,25 +183,30 @@ class BleController extends GetxController {
   }
 
   void _detectMovement(List<double> currentAcc, List<double> currentGyro) {
-
-    print("활동_Previous Acc: $_previousAccelerometer");
-    print("활동_Current Acc: $currentAcc");
-    print("활동_Previous Gyro: $_previousGyroscope");
-    print("활동_Current Gyro: $currentGyro");
-
-
     // 가속도와 자이로 변화량 계산
     double accDiff = 0;
     double gyroDiff = 0;
 
+    // 각 축별로 변화량 계산
     for (int i = 0; i < 3; i++) {
       accDiff += (currentAcc[i] - _previousAccelerometer[i]).abs();
       gyroDiff += (currentGyro[i] - _previousGyroscope[i]).abs();
     }
 
-    // 움직임 강도에 따른 상태 구분 - 조건 순서 변경 및 정지 조건 강화
-    if (accDiff <= stillThreshold && gyroDiff <= stillThreshold) {
-      // 정지 조건을 먼저 검사하고, 더 엄격한 조건 적용
+    // 각 축별 최대 변화량 확인
+    double maxAccDiff = 0;
+    double maxGyroDiff = 0;
+    for (int i = 0; i < 3; i++) {
+      double axisDiff = (currentAcc[i] - _previousAccelerometer[i]).abs();
+      if (axisDiff > maxAccDiff) maxAccDiff = axisDiff;
+
+      axisDiff = (currentGyro[i] - _previousGyroscope[i]).abs();
+      if (axisDiff > maxGyroDiff) maxGyroDiff = axisDiff;
+    }
+
+    // 움직임 상태 판단 - 정지 조건 강화
+    if (maxAccDiff <= stillThreshold && maxGyroDiff <= stillThreshold) {
+      // 어느 한 축이라도 stillThreshold 이하면 정지로 판단
       behaviorPrediction.predictedBehavior.value = '정지';
     } else if (accDiff > runningThreshold || gyroDiff > runningThreshold) {
       behaviorPrediction.predictedBehavior.value = '뛰기';
@@ -208,8 +214,9 @@ class BleController extends GetxController {
       behaviorPrediction.predictedBehavior.value = '걷기';
     }
 
-    print("Movement detection: acc_diff=$accDiff, gyro_diff=$gyroDiff, state=${behaviorPrediction.predictedBehavior.value}");
-
+    print("Movement detection: acc_diff=$accDiff, max_acc_diff=$maxAccDiff, " +
+        "gyro_diff=$gyroDiff, max_gyro_diff=$maxGyroDiff, " +
+        "state=${behaviorPrediction.predictedBehavior.value}");
   }
 
   void _processReceivedPacket(String packet) {

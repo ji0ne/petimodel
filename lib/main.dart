@@ -228,9 +228,16 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
                   IconButton(
                     icon: const Icon(Icons.videocam, color: Colors.deepOrange),
                     onPressed: () {
-                      Navigator.push(
+                      Navigator.pushReplacement(
                         context,
-                        MaterialPageRoute(builder: (context) => LiveStreamPage()),
+                        MaterialPageRoute(
+                            builder: (context) => LiveStreamPage(
+                              key: UniqueKey(),
+                              onExit: () {
+
+                              }
+                            ),
+                        ),
                       );
                     },
                   ),

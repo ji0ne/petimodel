@@ -9,7 +9,7 @@ import 'package:onnxruntime/onnxruntime.dart';
 class BleController extends GetxController {
   BluetoothDevice? connectedDevice;
   List<BluetoothService> services = [];
-  StreamSubscription<BluetoothDeviceState>? _deviceStateSubscription;
+  StreamSubscription<BluetoothConnectionState>? _deviceStateSubscription;
   StreamSubscription<List<int>>? _characteristicSubscription;
   RxList<String> receivedDataList = <String>[].obs;
   BluetoothCharacteristic? writeCharacteristic;
@@ -27,6 +27,7 @@ class BleController extends GetxController {
   var isScanning = false.obs;
   Rx<String?> connectingDeviceId = Rx<String?>(null);
   RxBool isConnected = false.obs;
+  RxBool isConnecting = false.obs;
   DateTime lastUpdateTime = DateTime.now();
 
 
@@ -58,9 +59,7 @@ class BleController extends GetxController {
 
   @override
   void dispose() {
-    connectedDevice?.disconnect();
-    _deviceStateSubscription?.cancel();
-    _characteristicSubscription?.cancel();
+    _reconnectionTimer?.cancel();
     super.dispose();
   }
 
@@ -72,36 +71,185 @@ class BleController extends GetxController {
     isScanning.value = false;
   }
 
-  Future<void> connectToDevice(BluetoothDevice device) async {
-    try {
-      connectingDeviceId.value = device.id.id;
-      await device.connect(timeout: Duration(seconds: 15));
-      connectedDevice = device;
-      isConnected.value = true;
-      print("기기 연결됨 : $connectedDevice");
 
+// 연결 상태 리스너도 더 끈질기게 수정
+  void _setupDeviceStateListener(BluetoothDevice device) {
+    _deviceStateSubscription?.cancel();
+    _deviceStateSubscription = device.connectionState.listen(
+         (state) {
+        print('Device connection state changed: $state');
+        switch (state) {
+          case BluetoothConnectionState.connected:
+            isConnected.value = true;
+            isConnecting.value = false;
+            break;
+          case BluetoothConnectionState.disconnected:
+            isConnected.value = false;
+            _characteristicSubscription?.cancel();
+            // 더 적극적인 재연결 시도
+            if (connectedDevice != null) {
+              print("Unexpected disconnection. Starting aggressive reconnection...");
+              _startReconnectionTimer();
+            }
+            break;
+          default:
+            break;
+        }
+      },
+      onError: (error) {
+        print("Connection state listener error: $error");
+        isConnected.value = false;
+        // 에러 발생 시에도 재연결 시도
+        if (connectedDevice != null) {
+          _startReconnectionTimer();
+        }
+      },
+    );
+  }
+
+  Future<void> connectToDevice(BluetoothDevice device, {int maxRetries = 5}) async {
+    int retryCount = 0;
+    bool connected = false;
+
+    isConnecting.value = true;
+    connectingDeviceId.value = device.id.toString();
+
+    while (!connected && retryCount < maxRetries) {
+      try {
+        print("Connection attempt ${retryCount + 1} of $maxRetries");
+
+        // 이전 연결 정리
+        if (connectedDevice != null) {
+          await connectedDevice?.disconnect();
+          await Future.delayed(Duration(milliseconds: 1000));
+        }
+
+        // 연결 시도 - autoConnect 제거
+        print("Attempting to connect to device: ${device.id}");
+        await device.connect(
+          timeout: Duration(seconds: 15),  // 타임아웃 시간 줄임
+        ).timeout(
+          Duration(seconds: 15),
+          onTimeout: () {
+            throw TimeoutException('Connection attempt timed out');
+          },
+        );
+
+        // 연결 상태 확인
+        await Future.delayed(Duration(seconds: 2));
+        final state = await device.connectionState.first;
+
+        if (state == BluetoothConnectionState.connected) {
+          print("Successfully connected on attempt ${retryCount + 1}");
+
+          connectedDevice = device;
+          _setupDeviceStateListener(device);
+
+          bool servicesSetup = await _setupServices(device);
+
+          if(servicesSetup) {
+            connected = true;
+            isConnected.value = true;
+            break;
+          }
+        }
+      } catch (e) {
+        print("Connection attempt ${retryCount + 1} failed: $e");
+        retryCount++;
+        if(retryCount < maxRetries) {
+          print("Retrying connection...");
+          await Future.delayed(Duration(seconds: 2));
+        }
+      }
+    }
+
+    if (!connected) {
+      print("Failed to connect after $maxRetries attempts");
+      isConnected.value = false;
+      connectedDevice = null;
+      connectingDeviceId.value = null;
+
+      _startReconnectionTimer();
+    }
+
+    isConnecting.value = false;
+  }
+
+  // 서비스 설정을 위한 별도 메소드
+  Future<bool> _setupServices(BluetoothDevice device) async {
+    try {
       services = await device.discoverServices();
+      bool characteristicFound = false;
 
       for (var service in services) {
         for (var characteristic in service.characteristics) {
           if (characteristic.uuid == Guid('00002a57-0000-1000-8000-00805f9b34fb')) {
             if (characteristic.properties.notify) {
-              print("Notify Characteristic Found: $characteristic");
+              await characteristic.setNotifyValue(true);
               _subscribeToCharacteristic(characteristic);
+              characteristicFound = true;
             }
             if (characteristic.properties.write) {
               writeCharacteristic = characteristic;
-              print("Write Characteristic Found: $writeCharacteristic");
             }
           }
         }
       }
+      return characteristicFound;
     } catch (e) {
-      print("Connection error: $e");
-    } finally {
-      connectingDeviceId.value = null;
+      print("Service setup failed: $e");
+      return false;
     }
   }
+
+  Timer? _reconnectionTimer;
+
+  void _startReconnectionTimer()
+  {
+    _reconnectionTimer?.cancel();
+    _reconnectionTimer = Timer.periodic(Duration(seconds: 5), (timer) async {
+      if (!isConnected.value && connectedDevice != null) {
+        print("Attempting automatic reconnection...");
+        isConnecting.value = true;
+        await connectToDevice(connectedDevice!);
+      } else {
+        timer.cancel();
+      }
+    });
+  }
+
+// 끈질긴 재연결 로직
+  Future<void> retryConnection() async {
+    if (connectedDevice != null) {
+      print("Starting persistent reconnection...");
+      int reconnectAttempts = 0;
+      const maxReconnectAttempts = 10;  // 최대 재연결 시도 횟수 증가
+
+      while (reconnectAttempts < maxReconnectAttempts && !isConnected.value) {
+        print("Reconnection attempt ${reconnectAttempts + 1}");
+        try {
+          await connectToDevice(connectedDevice!, maxRetries: 3);
+          if (isConnected.value) {
+            print("Reconnection successful!");
+            break;
+          }
+        } catch (e) {
+          print("Reconnection attempt failed: $e");
+        }
+
+        reconnectAttempts++;
+        if (!isConnected.value && reconnectAttempts < maxReconnectAttempts) {
+          // 실패 시 점진적으로 대기 시간 증가
+          await Future.delayed(Duration(seconds: 2 + reconnectAttempts));
+        }
+      }
+
+      if (!isConnected.value) {
+        print("Failed to reconnect after $maxReconnectAttempts attempts");
+      }
+    }
+  }
+
 
   StringBuffer _completeLog = StringBuffer();
   String _lastTemperature = "";

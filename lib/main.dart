@@ -358,38 +358,103 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
                         }
 
                         return ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          itemCount: filteredResults.length,
-                          itemBuilder: (context, index) {
-                            final data = filteredResults[index];
-                            return Card(
-                              margin: const EdgeInsets.only(bottom: 8),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: ListTile(
-                                title: Text(data.device.name.isEmpty ? 'Unknown Device' : data.device.name),
-                                subtitle: Obx(() {
-                                  if (controller.connectingDeviceId.value == data.device.id.id) {
-                                    return Text(
-                                      'Connecting...',
-                                      style: TextStyle(color: Colors.orange),
-                                    );
-                                  } else if (controller.connectedDevice?.id.id == data.device.id.id &&
-                                      controller.isConnected.value) {
-                                    return Text(
-                                      'Connected',
-                                      style: TextStyle(color: Colors.green),
-                                    );
-                                  }
-                                  return Text(data.device.id.id);
-                                }),
-                                trailing: Text(data.rssi.toString()),
-                                onTap: () => controller.connectToDevice(data.device),
-                              ),
-                            );
-                          },
-                        );
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            itemCount: filteredResults.length,
+                            itemBuilder: (context, index) {
+                              final data = filteredResults[index];
+                              return Card(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  side: BorderSide(
+                                    color: controller.connectedDevice?.id.id == data.device.id.id &&
+                                        controller.isConnected.value
+                                        ? Colors.green
+                                        : controller.connectingDeviceId.value == data.device.id.toString() &&
+                                        controller.isConnecting.value
+                                        ? Colors.orange
+                                        : Colors.grey.shade300,
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: ListTile(
+                                  title: Text(
+                                    data.device.name.isEmpty ? 'Unknown Device' : data.device.name,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  subtitle: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(data.device.id.id),
+                                      Obx(() {
+                                        if (controller.connectingDeviceId.value == data.device.id.toString() &&
+                                            controller.isConnecting.value) {
+                                          return Row(
+                                            children: [
+                                              SizedBox(
+                                                width: 16,
+                                                height: 16,
+                                                child: CircularProgressIndicator(
+                                                  strokeWidth: 2,
+                                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.orange),
+                                                ),
+                                              ),
+                                              SizedBox(width: 8),
+                                              Text(
+                                                'Connecting...',
+                                                style: TextStyle(color: Colors.orange),
+                                              ),
+                                            ],
+                                          );
+                                        } else if (controller.connectedDevice?.id.id == data.device.id.id &&
+                                            controller.isConnected.value) {
+                                          return Text(
+                                            'Connected',
+                                            style: TextStyle(color: Colors.green),
+                                          );
+                                        }
+                                        return SizedBox.shrink();
+                                      }),
+                                    ],
+                                  ),
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(data.rssi.toString()),
+                                      SizedBox(width: 8),
+                                      Obx(() {
+                                        final isThisDeviceConnecting = controller.connectingDeviceId.value == data.device.id.toString() &&
+                                            controller.isConnecting.value;
+                                        final isThisDeviceConnected = controller.connectedDevice?.id.id == data.device.id.id &&
+                                            controller.isConnected.value;
+
+                                        return IconButton(
+                                          icon: Icon(
+                                            isThisDeviceConnected
+                                                ? Icons.check_circle
+                                                : isThisDeviceConnecting
+                                                ? Icons.autorenew
+                                                : Icons.bluetooth_connected,
+                                            color: isThisDeviceConnected
+                                                ? Colors.green
+                                                : isThisDeviceConnecting
+                                                ? Colors.orange
+                                                : Colors.grey,
+                                          ),
+                                          onPressed: isThisDeviceConnecting || isThisDeviceConnected
+                                              ? null
+                                              : () => controller.connectToDevice(data.device),
+                                        );
+                                      }),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          );
                       } else {
                         return const Center(child: Text("검색된 기기가 없습니다"));
                       }

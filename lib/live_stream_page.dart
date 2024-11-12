@@ -38,6 +38,14 @@ class _LiveStreamPageState extends State<LiveStreamPage> {
       ..loadRequest(Uri.parse('http://192.168.4.1:8080/'));
   }
 
+  // WebView 리소스 정리
+  @override
+  void dispose() {
+    controller.clearCache();
+    controller.clearLocalStorage();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(

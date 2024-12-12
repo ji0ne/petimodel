@@ -81,6 +81,14 @@ class _LiveStreamPageState extends State<LiveStreamPage> with WidgetsBindingObse
     }
   }
 
+  // WebView 리소스 정리
+  @override
+  void dispose() {
+    controller.clearCache();
+    controller.clearLocalStorage();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return WillPopScope(

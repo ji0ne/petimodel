@@ -1,18 +1,11 @@
-import 'package:petimodel/ble_controller.dart';
-import 'package:petimodel/live_stream_page.dart';
-import 'package:petimodel/pet_eye_page.dart';
-import 'package:petimodel/behavior_prediction.dart';
+// main.dart
 import 'package:flutter/material.dart';
-import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:get/get.dart';
-import 'dart:async';
-import 'dart:math';
-import 'health_assessment.dart';
-
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-
-import 'notification_service.dart';
+import 'start_user_page.dart';
+import 'pet_main_page.dart';
+import 'login_page.dart';
+import 'sign_up_page.dart';
+import 'pet_list_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -28,153 +21,18 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.deepOrange,
         useMaterial3: true,
       ),
-      home: const PetProfileScreen(),
-    );
-  }
-}
-
-class PetProfileScreen extends StatefulWidget {
-  const PetProfileScreen({super.key});
-
-  @override
-  State<PetProfileScreen> createState() => _PetProfileScreenState();
-}
-
-class _PetProfileScreenState extends State<PetProfileScreen> {
-  final BleController controller = Get.put(BleController());
-  late final HealthAssessment healthAssessment; // HealthAssessment 인스턴스 추가
-  RxString _movement = '정지'.obs;
-
-  Timer? _timer;
-  Timer? _healthCheckTimer; // _healthCheckTimer 변수 추가
-
-  bool _isAlertShowing = false; //팝업창
-
-  @override
-  void initState() {
-    super.initState();
-    _startTimer();
-    healthAssessment = HealthAssessment(controller);
-    _startHealthCheckTimer();
-    NotificationService().initialize();
-  }
-
-
-  void _startTimer() {
-    _timer = Timer.periodic(Duration(milliseconds: 500), (timer) {  // 더 빠른 업데이트를 위해 500ms로 변경
-      String behavior = controller.behaviorPrediction.predictedBehavior.value;
-      _movement.value = behavior;  // 직접 값 할당 (이미 '정지', '걷기', '뛰기' 중 하나)
-    });
-  }
-
-  void _startHealthCheckTimer() {
-    _healthCheckTimer = Timer.periodic(Duration(seconds: 1), (timer) {
-      String healthStatus = healthAssessment.assessHealth();
-
-      if (healthStatus == '위험' || healthStatus == '주의') {
-        NotificationService().showHealthAlert(
-          healthStatus,
-          controller.temperatureData.value,
-          controller.bpmData.value,
-          controller.behaviorPrediction.predictedBehavior.value,
-        );
-      }
-    });
-  }
-
-  // Alert Dialog 표시 함수
-  void _showVitalIssueDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          child: Container(
-            width: 300,
-            decoration: BoxDecoration(
-              color: Colors.deepOrange,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Align(
-                  alignment: Alignment.topRight,
-                  child: IconButton(
-                    icon: Icon(Icons.close, color: Colors.white),
-                    onPressed: () {
-                      _isAlertShowing = false;
-                      Navigator.of(context).pop();
-                    },
-                  ),
-                ),
-                Image.asset(
-                  'assets/dog-alert.png',  // 알림창에 표시할 강아지 이미지
-                  width: 100,
-                  height: 100,
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    children: [
-                      Text(
-                        '! Vital Issue !',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      SizedBox(height: 8),
-                      Text(
-                        '아이의 행동에 주의를 기울여 주세요',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.black,
-                        ),
-                        onPressed: () {
-                          _isAlertShowing = false;
-                          Navigator.of(context).pop();
-                        },
-                        child: Text('확인'),
-                      ),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.black,
-                        ),
-                        onPressed: () {
-                          _sendPostRequest();
-                          _isAlertShowing = false;
-                          Navigator.of(context).pop();
-                        },
-                        child: Text('PET EYE'),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
+      initialRoute: '/',
+      routes: {
+        '/': (context) => const StartScreen(),
+        '/login': (context) => const LoginPage(), // 로그인 페이지 route
+        '/sign_up': (context) => const SignUpPage(), // 회원가입 페이지 route
+        '/pet_list': (context) => const PetListPage(),
       },
     );
   }
+
+}
+
 
   Future<void> _sendPostRequest() async {
     try {
@@ -531,3 +389,4 @@ class _PetProfileScreenState extends State<PetProfileScreen> {
     );
   }
 }
+

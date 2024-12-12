@@ -44,6 +44,8 @@ dependencies:
   flutter_local_notifications: ^17.2.4
   onnxruntime: ^1.4.1
   path_provider: ^2.1.4
+  shared_preferences: ^2.3.3
+  intl: ^0.19.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -66,6 +68,14 @@ flutter:
     - assets/sitting-dog-icon.png
     - assets/dog-alert.png
     - assets/hiro-profile.png
+    - assets/background.jpg
+    - assets/edit-icon.png
+    - assets/plus-icon.png
+    - assets/petiLogoW.png
+    - assets/peti-text-icon-w.png
+    - assets/x-icon.png
+    - assets/female.png
+    - assets/man.png
     - assets/model/wandb_model.onnx
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
